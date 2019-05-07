@@ -1,5 +1,5 @@
 /* 
- * Uninterrruptible Power Supply (UPS) for a Raspberry Pi
+ * Lithium-Ion Battery Charger Class
  * 
  * This source file is part of the Raspberry Pi UPS Arduino firmware
  * found under http://www.github.com/microfarad-de/pi-ups
@@ -23,19 +23,4 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>. 
  * 
- * Version: 1.0.0
- * Date:    May 2019
  */
-#define VERSION_MAJOR 1  // major version
-#define VERSION_MINOR 0  // minor version
-#define VERSION_MAINT 0  // maintenance version
-
-void setup() {
-  // put your setup code here, to run once:
-
-}
-
-void loop() {
-  // put your main code here, to run repeatedly:
-
-}
