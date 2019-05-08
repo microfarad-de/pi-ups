@@ -30,6 +30,12 @@
 #define VERSION_MINOR 0  // minor version
 #define VERSION_MAINT 0  // maintenance version
 
+#include <avr/wdt.h>
+#include <Arduino.h>
+#include "LiCharger.h"
+#include "Cli.h"
+
+
 void setup() {
   // put your setup code here, to run once:
 

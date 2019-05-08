@@ -34,54 +34,56 @@
  * State machine states
  */
 enum LiChargerState_t { 
-  STATE_INIT_E, 
-  STATE_INIT, 
-  STATE_CHARGE_E, 
-  STATE_CHARGE, 
-  STATE_FULL_E, 
-  STATE_FULL, 
-  STATE_ERROR_E, 
-  STATE_ERROR,  
+  LI_CHARGER_STATE_STANDBY_E,    // Standby (state entry)
+  LI_CHARGER_STATE_STANDBY,      // Standby
+  LI_CHARGER_STATE_CHARGE_E,     // Charging (state entry)
+  LI_CHARGER_STATE_CHARGE,       // Charging
 };
 
 /*
  * Lithium-Ion battery charger class
  */
-class LiChargerClass
-{
+class LiChargerClass {
+  
   public:
     /*
      * Initialization function
      */
     void initialize (
-        uint16_t iChrg,    // I_chrg - Maximum charging current in mA 
-        uint16_t iFull,    // I_full - End of charge current in mA
-        uint8_t  nCells,   // N_cells - Number of Lithium-Ion cells
-        void (*callback)(  // Callback function for controlling the PWM hardware
-            uint8_t pwm,   // PWM duty cycle
+        uint8_t  nCells,      // N_cells - Number of Lithium-Ion cells
+        uint16_t iChrg,       // I_chrg - Maximum charging current in mA 
+        uint16_t iFull,       // I_full - End of charge current in mA
+        void (*callbackFct)(  // Callback function for controlling the PWM hardware
+            uint8_t pwm       // PWM duty cycle
             )
         );
 
+    /*
+     * This function must be called within the Arduino main loop
+     * it provides the Li-Ion charger with the latest voltage and 
+     * current readings
+     */
     void loopHandler (
-        uint32_t v, 
-        uint32_t i
+        uint32_t v,        // V - battery voltage in µV
+        uint32_t i         // I - battery current in µA
         );
 
 
+    uint8_t  nCells = 1;      // N_cells - Number of Lithium-Ion cells
+    uint16_t iChrg = 0;       // I_chrg - Maximum charging current in mA 
+    uint16_t iFull = 150;     // I_full - End of charge current in mA
+    uint8_t  dutyCycle = 0;   // PWM duty cycle (0..255)
+    LiChargerState_t state = LI_CHARGER_STATE_STANDBY_E;  // Charger state
+
   private:
-    uint16_t iChrg;    // I_chrg - Maximum charging current in mA 
-    uint16_t iFull;    // I_full - End of charge current in mA
-    uint8_t  nCells;   // N_cells - Number of Lithium-Ion cells  
+    
+    void (*callbackFct)(uint8_t pwm);
+    uint32_t updateTs = 0;
+    uint32_t chargeTs = 0;
+    uint32_t fullTs   = 0;
+    uint32_t iMax = 0;
+    bool safeCharge = true;
 };
-
-
-
-
-
-
-
-
-
 
 
 
