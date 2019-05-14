@@ -34,14 +34,66 @@
 #include <Arduino.h>
 #include "LiCharger.h"
 #include "Cli.h"
+#include "ADC.h"
+#include "Led.h"
 
 
-void setup() {
-  // put your setup code here, to run once:
+/*
+ * Pin assignment
+ */
+#define LED_PIN        13      // LED pin
+
+
+
+/* 
+ * Objects
+ */
+LedClass Led;
+
+
+/*
+ * Arduino initalization routine
+ */
+void setup (void) {
+
+  MCUSR = 0;      // clear MCU status register
+  wdt_disable (); // and disable watchdog
+  
+  // Initialize the command-line interface
+  Cli.init();
+  Cli.xputs ("");
+  Cli.xputs ("+ + +  P I  U P S  + + +");
+  Cli.xputs ("");
+  Cli.xprintf ("V %d.%d.%d\n", VERSION_MAJOR, VERSION_MINOR, VERSION_MAINT);
+  Cli.xputs ("");
+  Cli.newCmd ("test", "test routine", test);
+  
+  Cli.showHelp ();
+
+  // Initialize LED
+  Led.initialize (LED_PIN);
+  Led.blink (-1, 500, 1500);
 
 }
 
-void loop() {
-  // put your main code here, to run repeatedly:
 
+/*
+ * Arduino main loop
+ */
+void loop (void) {
+
+  // Command-line interpreter
+  Cli.getCmd ();
+
+  // Update the LED state
+  Led.loopHandler ();
+
+}
+
+/*
+ * CLI command
+ */
+int test (int argc, char **argv) {
+  Cli.xprintf ("Testing CLI: %s\n", argv[1]);
+  return 0;
 }

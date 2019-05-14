@@ -1,8 +1,8 @@
 /* 
  * Command-Line Interpreter
  * 
- * This source file is part of the Lithium-Ion Battery Charger Arduino firmware
- * found under http://www.github.com/microfarad-de/li-charger
+ * This source file is part of the Raspberry Pi UPS Arduino firmware
+ * found under http://www.github.com/microfarad-de/pi-ups
  * 
  * Please visit:
  *   http://www.microfarad.de
