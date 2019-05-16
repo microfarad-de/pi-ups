@@ -56,7 +56,9 @@ class CliClass
      * Initialize a CLI object
      * Note: this function calls Serial.begin
      */
-    void init (void);
+    void init (
+      uint32_t serialBaud // Serial Baud rate
+      );
 
     /* 
      * Define a new CLI command

@@ -38,17 +38,46 @@
 #include "Led.h"
 
 
+
+#define SERIAL_BAUD     115200    // Serial baud rate
+
+
 /*
  * Pin assignment
  */
 #define LED_PIN        13      // LED pin
 
 
-
 /* 
  * Objects
  */
 LedClass Led;
+
+
+/*
+ * Global variables
+ */
+struct {
+  State_t state = STATE_INIT_E; // Current state machine state
+  uint32_t v1;           // V1 - Voltage at the battery '+' terminal (MOSFET drain) in µV
+  uint32_t v2;           // V2 - Voltage at the battery '-' terminal (shunt) in µV
+  uint32_t v;            // V  - Battery voltage = V1 - V2 in µV
+  uint32_t vMax;         // Maximum allowed battery voltage during charging in µV
+  uint32_t i;            // I - Charging current in µA
+  uint32_t iMax;         // I_max - Maximum charging current in µA
+  uint32_t tMax;         // T_max - Maximum allowed charge time duration in s
+  uint32_t iCalibration; // Calibration value for calculating i
+  uint32_t c = 0;        // Total charged capacity in mAs
+  uint32_t cMax;         // C_max - Maximum allowed charge capacity in mAs 
+  uint32_t t = 0;        // Charge duration in s
+  uint32_t tUpdate;      // Regulation loop update interval in ms
+  uint16_t v1Raw;        // Raw ADC value of V1
+  uint16_t v2Raw;        // Raw ADC value of V2
+  uint16_t iSafe;        // I_safe - Charging current in mA when the battery voltage is below V_SAFE
+  uint8_t dutyCycle;     // PWM duty cycle
+  bool crcOk = false;    // EEPROM CRC check was successful
+} G;
+
 
 
 /*
@@ -60,7 +89,7 @@ void setup (void) {
   wdt_disable (); // and disable watchdog
   
   // Initialize the command-line interface
-  Cli.init();
+  Cli.init ( SERIAL_BAUD );
   Cli.xputs ("");
   Cli.xputs ("+ + +  P I  U P S  + + +");
   Cli.xputs ("");

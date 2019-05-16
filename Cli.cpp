@@ -31,7 +31,6 @@
 #include "Cli.h"
 
 
-#define SERIAL_BAUD     115200    // Serial baud rate
 #define TEXT_LINE_SIZE  70        // Sets the maximum text line size
 #define INDENT          15        // Help text block indentation
 
@@ -41,7 +40,7 @@ CliClass Cli;
 
 
 
-void CliClass::init(void)
+void CliClass::init( uint32_t serialBaud)
 {
   int i;
   this->numCmds = 0;
@@ -51,7 +50,7 @@ void CliClass::init(void)
     this->argv[i] = this->argBuf[i];
   }
   
-  Serial.begin(SERIAL_BAUD);
+  Serial.begin(serialBaud);
 }
 
 
