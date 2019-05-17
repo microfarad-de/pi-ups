@@ -51,7 +51,7 @@ class LiChargerClass {
      */
     void initialize (
         uint8_t  nCells,      // N_cells - Number of Lithium-Ion cells
-        uint16_t iChrg,       // I_chrg - Maximum charging current in mA 
+        uint16_t iChrg,       // I_chrg - Constant charging current in mA 
         uint16_t iFull,       // I_full - End of charge current in mA
         void (*callbackFct)(  // Callback function for controlling the PWM hardware
             uint8_t pwm       // PWM duty cycle
@@ -72,7 +72,7 @@ class LiChargerClass {
     uint8_t  nCells = 1;      // N_cells - Number of Lithium-Ion cells
     uint16_t iChrg = 0;       // I_chrg - Maximum charging current in mA 
     uint16_t iFull = 150;     // I_full - End of charge current in mA
-    uint8_t  dutyCycle = 0;   // PWM duty cycle (0..255)
+    uint8_t  pwm = 0;         // PWM duty cycle (0..255)
     LiChargerState_t state = LI_CHARGER_STATE_STANDBY_E;  // Charger state
 
   private:

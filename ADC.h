@@ -32,7 +32,7 @@
 #include <Arduino.h>
 
 
-#define ADC_NUM_PINS 2  /* Total number of ADC pins */
+#define ADC_NUM_PINS 8  /* Total number of ADC pins */
 
 /*
  * ADC prescaler values

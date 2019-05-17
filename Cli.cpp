@@ -40,7 +40,7 @@ CliClass Cli;
 
 
 
-void CliClass::init( uint32_t serialBaud)
+void CliClass::init (uint32_t serialBaud)
 {
   int i;
   this->numCmds = 0;
@@ -54,7 +54,7 @@ void CliClass::init( uint32_t serialBaud)
 }
 
 
-int CliClass::newCmd(const char *name, const char *description, int(*function)(int, char **))
+int CliClass::newCmd (const char *name, const char *description, int(*function)(int, char **))
 {
   if (!initialized) return EXIT_FAILURE;
   
@@ -72,7 +72,7 @@ int CliClass::newCmd(const char *name, const char *description, int(*function)(i
 }
 
 
-int CliClass::getCmd(void)
+int CliClass::getCmd (void)
 {
   char c;
   int i;
@@ -159,7 +159,7 @@ int CliClass::getCmd(void)
 }
 
 
-void CliClass::showHelp(void)
+void CliClass::showHelp (void)
 {
   int i, j;
   bool duplicate = false;
@@ -231,7 +231,7 @@ void CliClass::showHelp(void)
 }
 
 
-void CliClass::sortCmds(int numCmds, CliCmd_s **cmd)
+void CliClass::sortCmds (int numCmds, CliCmd_s **cmd)
 {
   bool sorted = false;
   int i;
@@ -251,7 +251,7 @@ void CliClass::sortCmds(int numCmds, CliCmd_s **cmd)
 }
 
 
-void CliClass::textPrintBlock(const char *text, int lineSize, int offset)
+void CliClass::textPrintBlock (const char *text, int lineSize, int offset)
 {
   const char *c = text;
   int count, i;
@@ -290,7 +290,7 @@ void CliClass::textPrintBlock(const char *text, int lineSize, int offset)
 }
 
 
-void CliClass::textPadding(char c, int size)
+void CliClass::textPadding (char c, int size)
 {
   int i;
 
@@ -300,7 +300,7 @@ void CliClass::textPadding(char c, int size)
 }
 
 
-void CliClass::xprintf(const char *fmt, ... ){
+void CliClass::xprintf (const char *fmt, ... ){
   va_list args;
   if (!initialized) return;
   va_start (args, fmt );
@@ -310,20 +310,20 @@ void CliClass::xprintf(const char *fmt, ... ){
 }
 
 
-void CliClass::xputs(const char *c){
+void CliClass::xputs (const char *c){
   if (!initialized) return;
   Serial.print(c);
   Serial.print("\n");
 }
 
 
-void CliClass::xputchar(int c){
+void CliClass::xputchar (int c){
   if (!initialized) return;
   Serial.write(c);
 }
 
 
-int CliClass::xgetchar(void){
+int CliClass::xgetchar (void){
   int c;
   if (!initialized) return -1;
   c = Serial.read();
