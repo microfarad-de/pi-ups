@@ -218,6 +218,7 @@ void loop (void) {
       break;
       
     case STATE_EXTERNAL_E:
+      LiCharger.start ();
       G.stateStr = Str.EXTERN;
       G.state = STATE_EXTERNAL;
     case STATE_EXTERNAL:
@@ -236,6 +237,7 @@ void loop (void) {
       break;
 
     case STATE_CALIBRATE_E:
+      LiCharger.stop ();
       G.stateStr = Str.CALIBRATE;
       G.state = STATE_CALIBRATE;
     case STATE_CALIBRATE:
@@ -243,9 +245,9 @@ void loop (void) {
       break;
 
     case STATE_ERROR_E:
+      LiCharger.stop ();
       G.stateStr = Str.ERR;
       G.state = STATE_ERROR;
-      analogWrite (CHG_MOSFET_PIN, 255);
     case STATE_ERROR:
       // Do nothing and wait for a CLI command
       break;
@@ -293,7 +295,7 @@ void adcRead (void) {
     G.vIn   = (uint32_t)G.vInRaw * Nvm.vInCal;
     G.vUps  = (uint32_t)G.vUpsRaw * Nvm.vUpsCal;
     G.vBatt = (uint32_t)G.vBattRaw * Nvm.vBattCal;
-    G.iBatt = (( (uint64_t)G.vIn - (uint64_t)G.vBatt - (uint64_t)Nvm.vDiode*1000) * LiCharger.pwm * 1000) / 512 / Nvm.rShunt ;
+    G.iBatt = (( (uint64_t)G.vIn - (uint64_t)G.vBatt - (uint64_t)Nvm.vDiode*1000) * LiCharger.pwm * 1000) / 255 / Nvm.rShunt ;
     if (G.iBatt < 0) G.iBatt = 0;
 
   }
@@ -436,11 +438,11 @@ int cmdCal (int argc, char **argv) {
     if      (strcmp(argv[1], "vin"  ) == 0) calVin (vRef);
     else if (strcmp(argv[1], "vups" ) == 0) calVups (vRef);
     else if (strcmp(argv[1], "vbatt") == 0) calVbatt (vRef);
-    else    G.state = STATE_INIT_E, Cli.xputs ("Cal. done\n");
+    else    G.state = STATE_INIT_E, Cli.xputs ("Cal. mode end\n");
   }
   else {
     G.state = STATE_CALIBRATE_E;
-    Cli.xputs ("Cal. mode\n");        
+    Cli.xputs ("Cal. mode begin\n");        
     //Cli.xprintf ("V_in_ref   = %lu mV\n", V_IN_REF / 1000);
     //Cli.xprintf ("V_ups_ref  = %lu mV\n", V_UPS_REF / 1000);
     //Cli.xprintf ("V_batt_ref = %lu mV\n\n", V_BATT_REF / 1000);

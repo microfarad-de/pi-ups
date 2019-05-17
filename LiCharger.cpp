@@ -63,6 +63,8 @@ void LiChargerClass::loopHandler (uint32_t v, uint32_t i) {
 
   // Main state machine
   switch (state) {
+
+    if (!active) return;
     
     case LI_CHARGER_STATE_STANDBY_E:
       pwm = 0;    
@@ -123,4 +125,16 @@ void LiChargerClass::loopHandler (uint32_t v, uint32_t i) {
     
   }
   
+}
+
+
+void LiChargerClass::start (void) {
+  active = true;
+}
+
+
+void LiChargerClass::stop (void) {
+  active = false;
+  pwm = 0;
+  callbackFct (pwm);
 }

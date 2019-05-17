@@ -68,7 +68,17 @@ class LiChargerClass {
         uint32_t i         // I - battery current in µA
         );
 
+    /*
+     * Start the charging process
+     */
+    void start (void);
 
+    /*
+     * Stop the charging process
+     */
+    void stop (void);
+
+    bool active = false;      // Indicates if the charging is active
     uint8_t  nCells = 1;      // N_cells - Number of Lithium-Ion cells
     uint16_t iChrg = 0;       // I_chrg - Maximum charging current in mA 
     uint16_t iFull = 150;     // I_full - End of charge current in mA
