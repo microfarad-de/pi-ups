@@ -31,26 +31,26 @@
 /*
  * Configuration parameters
  */
-#define V_MAX           4190000 // 4.19 V - Maximum allowed battery voltage per cell in µV
-#define V_START_MAX     4100000 // 4.10 V - Start charging below this voltage in µV
-#define V_START_MIN     2200000 // 2.20 V - Start charging above this voltage in µV
-#define V_SAFE          2800000 // 2.80 V - Chare with reduced current I_safe below this voltage per cell in µV
-#define V_WINDOW           2000 // 0.002 V - Do not regulate voltage when within +/- this window (per cell) in µV
-#define I_WINDOW          15000 // 0.015 A - Do not regulate current when within +/- this window in µA
-#define I_SAFE_DIVIDER       10 // Divide I_chrg by this value to calculate I_safe, which is the reduced safety charging current
-#define TIMEOUT_CHARGE     2000 // Time duration in ms during which V shall be between V_START_MIN and V_START_MAX before starting to charge
-#define TIMEOUT_FULL      20000 // Time duration in ms during which I_full shall not be exceeded in order to assume that battery is full
-#define TIMEOUT_UPDATE       50 // Time interval in ms for updating the output by one increment
+#define V_MAX           4150000  // 4.15 V - Maximum allowed battery voltage per cell in µV
+#define V_START_MAX     4100000  // 4.10 V - Start charging below this voltage in µV
+#define V_START_MIN     2200000  // 2.20 V - Start charging above this voltage in µV
+#define V_SAFE          2800000  // 2.80 V - Chare with reduced current I_safe below this voltage per cell in µV
+#define V_WINDOW           2000  // 0.002 V - Do not regulate voltage when within +/- this window (per cell) in µV
+#define I_WINDOW          15000  // 0.015 A - Do not regulate current when within +/- this window in µA
+#define I_FULL              150  // 150 mA - End of charge current in mA         
+#define I_SAFE_DIVIDER       10  // Divide I_chrg by this value to calculate I_safe, which is the reduced safety charging current
+#define TIMEOUT_START      2000  // Time duration in ms during which V shall be between V_START_MIN and V_START_MAX before starting to charge
+#define TIMEOUT_FULL      10000  // Time duration in ms during which I_full shall not be exceeded in order to assume that battery is full
+#define TIMEOUT_UPDATE       50  // Time interval in ms for updating the output by one increment
 
 
 
 
 
-void LiChargerClass::initialize ( uint8_t  nCells, uint16_t iChrg, uint16_t iFull, void (*callbackFct)(uint8_t pwm) ) {
+void LiChargerClass::initialize ( uint8_t  nCells, uint16_t iChrg, void (*callbackFct)(uint8_t pwm) ) {
 
   this->nCells = nCells;
   this->iChrg = iChrg;
-  this->iFull = iFull;
   this->callbackFct = callbackFct;
   this->state = LI_CHARGER_STATE_STANDBY_E;
 }
@@ -73,8 +73,8 @@ void LiChargerClass::loopHandler (uint32_t v, uint32_t i) {
     case LI_CHARGER_STATE_STANDBY:
     
       // Start charging if V stays within bounds during TIMEOUT_CHARGE
-      if ( v < (uint32_t)V_START_MIN * nCells || v > (uint32_t)V_START_MAX * nCells) chargeTs = ts;
-      if (ts - chargeTs > TIMEOUT_CHARGE) {
+      if ( v < (uint32_t)V_START_MIN * nCells || v > (uint32_t)V_START_MAX * nCells) startTs = ts;
+      if (ts - startTs > TIMEOUT_START) {
         state = LI_CHARGER_STATE_CHARGE_E;
       }
       break;
@@ -114,7 +114,7 @@ void LiChargerClass::loopHandler (uint32_t v, uint32_t i) {
 
       // End of Charge Detection:
       // Report battery full if I_full has not been exceeded during TIMEOUT_FULL (ignore during safety charging)
-      if ( i > (uint32_t)iFull * 1000 || safeCharge ) fullTs = ts;
+      if ( i > (uint32_t)I_FULL * 1000 || safeCharge ) fullTs = ts;
       if (ts - fullTs > TIMEOUT_FULL) {
         state = LI_CHARGER_STATE_STANDBY_E; 
       }

@@ -51,7 +51,7 @@
 #define BATT_MOSFET_PIN          5  // Digital pin controlling the MOSFET gate for switching the battery power
 #define IN_MOSFET_PIN            7  // Digital pin controlling the MOSFET gate for switching the external power
 #define OUT_MOSFET_PIN           9  // Digital pin controlling the MOSFET gate for switching the output
-#define LED_PIN                 13  // LED digital pin
+#define LED_PIN                  2  // LED digital pin
 
 
 
@@ -59,8 +59,7 @@
  * Configuration parameters
  */
 #define SERIAL_BAUD      115200   // Serial communication baud rate
-#define I_FULL              150   // 150 mA - End of charge current in mA
-#define I_CHRG             1000   // 1000 mA - Constant charging current in mA
+#define I_CHRG              600   // 600mA - Constant charging current in mA
 #define ADC_AVG_SAMPLES      16   // Number of ADC samples to be averaged
 
 
@@ -168,7 +167,7 @@ void setup (void) {
   ADConv.initialize (ADC_PRESCALER_128, ADC_INTERNAL, NUM_APINS, ADC_AVG_SAMPLES);
 
   // Initialize the battery charger
-  LiCharger.initialize (1, I_CHRG, I_FULL, liChargerCB);
+  LiCharger.initialize (1, I_CHRG, liChargerCB);
 
   // Initialize the LED
   Led.initialize (LED_PIN);
