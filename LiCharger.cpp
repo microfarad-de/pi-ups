@@ -39,9 +39,9 @@
 #define I_WINDOW          15000  // 0.015 A - Do not regulate current when within +/- this window in µA
 #define I_FULL              150  // 150 mA - End of charge current in mA         
 #define I_SAFE_DIVIDER       10  // Divide I_chrg by this value to calculate I_safe, which is the reduced safety charging current
-#define TIMEOUT_START      2000  // Time duration in ms during which V shall be between V_START_MIN and V_START_MAX before starting to charge
-#define TIMEOUT_FULL      10000  // Time duration in ms during which I_full shall not be exceeded in order to assume that battery is full
-#define TIMEOUT_UPDATE       50  // Time interval in ms for updating the output by one increment
+#define START_DELAY        2000  // Time duration in ms during which V shall be between V_START_MIN and V_START_MAX before starting to charge
+#define FULL_DELAY        10000  // Time duration in ms during which I_full shall not be exceeded in order to assume that battery is full
+#define UPDATE_DELAY         50  // Time interval in ms for updating the output by one increment
 
 
 
@@ -61,10 +61,10 @@ void LiChargerClass::loopHandler (uint32_t v, uint32_t i) {
 
   uint32_t ts = millis ();
 
+  if (!active) return;
+
   // Main state machine
   switch (state) {
-
-    if (!active) return;
     
     case LI_CHARGER_STATE_STANDBY_E:
       pwm = 0;    
@@ -72,9 +72,9 @@ void LiChargerClass::loopHandler (uint32_t v, uint32_t i) {
       callbackFct (pwm);
     case LI_CHARGER_STATE_STANDBY:
     
-      // Start charging if V stays within bounds during TIMEOUT_CHARGE
+      // Start charging if V stays within bounds during DELAY_CHARGE
       if ( v < (uint32_t)V_START_MIN * nCells || v > (uint32_t)V_START_MAX * nCells) startTs = ts;
-      if (ts - startTs > TIMEOUT_START) {
+      if (ts - startTs > START_DELAY) {
         state = LI_CHARGER_STATE_CHARGE_E;
       }
       break;
@@ -89,7 +89,7 @@ void LiChargerClass::loopHandler (uint32_t v, uint32_t i) {
 
       // CC-CV Regulation:
       // Run the regulation routine at the preset interval
-      if (ts - updateTs > TIMEOUT_UPDATE) {
+      if (ts - updateTs > UPDATE_DELAY) {
         updateTs = ts;
 
         // Regulate voltage and current with the CC-CV algorithm
@@ -113,9 +113,9 @@ void LiChargerClass::loopHandler (uint32_t v, uint32_t i) {
       }
 
       // End of Charge Detection:
-      // Report battery full if I_full has not been exceeded during TIMEOUT_FULL (ignore during safety charging)
+      // Report battery full if I_full has not been exceeded during FULL_DELAY (ignore during safety charging)
       if ( i > (uint32_t)I_FULL * 1000 || safeCharge ) fullTs = ts;
-      if (ts - fullTs > TIMEOUT_FULL) {
+      if (ts - fullTs > FULL_DELAY) {
         state = LI_CHARGER_STATE_STANDBY_E; 
       }
       break;

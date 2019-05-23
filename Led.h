@@ -50,7 +50,8 @@ class LedClass {
     uint8_t ledPin;
     uint32_t blinkTs = 0;
     int32_t count;
-    uint32_t tOn, tOff;
+    uint32_t tOn = 0;
+    uint32_t tOff = 0;
     bool blinkOn;
 };
 

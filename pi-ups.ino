@@ -58,9 +58,17 @@
 /*
  * Configuration parameters
  */
-#define SERIAL_BAUD      115200   // Serial communication baud rate
-#define I_CHRG              600   // 600mA - Constant charging current in mA
-#define ADC_AVG_SAMPLES      16   // Number of ADC samples to be averaged
+#define SERIAL_BAUD          115200   // Serial communication baud rate
+#define I_CHRG                  500   // 500mA - Constant charging current in mA
+#define ADC_AVG_SAMPLES          16   // Number of ADC samples to be averaged
+#define V_IN_THR_BATTERY    4900000   // 4.85 V - V_in thershold in µV below which the UPS will switch to battery power
+#define V_IN_THR_EXTERNAL   5000000   // 5.0 V - V_in threshold in µV above which the UPS will switch back to external power
+#define V_BATT_THR_75       3800000   // 3.8 V - V_batt threshold in µV that roughly corresponds to 75% battery charge
+#define V_BATT_THR_50       3600000   // 3.6 V - V_batt threshold in µV that roughly corresponds to 50% battery charge        
+#define V_BATT_THR_25       3400000   // 3.4 V - V_batt threshold in µV that roughly corresponds to 25% battery charge
+#define V_BATT_THR_LOW      3300000   // 3.3 V - V_batt threshold in µV for initiating a system shutdown
+#define INITIAL_DELAY          2000   // Initial power on delay in ms
+#define EXTERNAL_DELAY         1000   // Delay in ms prior to switching back to external power
 
 
 
@@ -91,7 +99,6 @@ struct {
   uint16_t vUpsRaw;      // Raw ADC value of V_ups
   uint16_t vBattRaw;     // Raw ADC value of V_batt
   char *stateStr = 0;    // State as human readable string
-  bool crcOk = false;    // EEPROM CRC check was successful
 } G;
 
 
@@ -120,7 +127,6 @@ const struct {
   char *V_ups_cal  = (char *)"V_ups_cal  = %lu\n";
   char *V_batt_cal = (char *)"V_batt_cal = %lu\n";
   char *CRC        = (char *)"CRC        = %lx\n";
-  char *INIT       = (char *)"INIT";
   char *EXTERN     = (char *)"EXTERNAL";
   char *BATTERY    = (char *)"BATTERY";
   char *SHUTDOWN   = (char *)"SHUTDOWN";
@@ -144,7 +150,7 @@ void setup (void) {
   pinMode (BATT_MOSFET_PIN, OUTPUT);
   analogWrite (CHG_MOSFET_PIN, 255);     // Active low: max duty cycle means the MOSFET is off
   digitalWrite (IN_MOSFET_PIN, LOW);     // Active low: LOW means the MOSFET is on
-  digitalWrite (OUT_MOSFET_PIN, LOW);    // Active low: LOW means the MOSFET is on
+  digitalWrite (OUT_MOSFET_PIN, HIGH);   // Active low: HIGH means the MOSFET is off
   digitalWrite (BATT_MOSFET_PIN, HIGH);  // Active low: HIGH means the MOSFET is off
   
   
@@ -171,7 +177,6 @@ void setup (void) {
 
   // Initialize the LED
   Led.initialize (LED_PIN);
-  Led.blink (-1, 500, 1500);
 
   // Read the settings from EEPROM
   nvmRead ();
@@ -186,6 +191,8 @@ void setup (void) {
  * Arduino main loop
  */
 void loop (void) {
+  static uint32_t delayTs;  // Timestamp for measuring delays
+  uint32_t ts = millis ();  // General purpose millisecond timestamp
 
   // Reset the watchdog timer
   wdt_reset ();
@@ -201,51 +208,93 @@ void loop (void) {
   adcRead ();
 
   // Update the battery charger state
-  if (G.state == STATE_EXTERNAL) LiCharger.loopHandler (G.vBatt, G.iBatt );
-
-  // Force the error STATE if CRC error occurred
-  if (!G.crcOk && G.state != STATE_ERROR) Cli.xputs ("CRC error\n"), G.state = STATE_ERROR_E;
+  LiCharger.loopHandler (G.vBatt, G.iBatt );
 
   // Main state machine
   switch (G.state) {
 
     case STATE_INIT_E:
-      G.stateStr = Str.INIT;
+      delayTs = ts;
       G.state = STATE_INIT;
     case STATE_INIT:
-      G.state = STATE_EXTERNAL_E;
+      // Wait for the ADC to stabilize before starting-up
+      if (ts - delayTs > (uint32_t)INITIAL_DELAY) {
+        G.state = STATE_EXTERNAL_E;
+      }
       break;
       
     case STATE_EXTERNAL_E:
-      LiCharger.start ();
+      Led.blink (-1, 100, 1900);
+      LiCharger.start ();                   // Start battery charging
+      digitalWrite (OUT_MOSFET_PIN, LOW);   // Activate output power
+      digitalWrite (IN_MOSFET_PIN, LOW);    // Activate external power
+      digitalWrite (BATT_MOSFET_PIN, HIGH); // Deactivate battery power
       G.stateStr = Str.EXTERN;
+      Cli.xputs(G.stateStr);
       G.state = STATE_EXTERNAL;
     case STATE_EXTERNAL:
+      // Switch to battery power if V_in is below the specified threshold
+      if (G.vIn < (uint32_t)V_IN_THR_BATTERY) {
+        G.state = STATE_BATTERY_E;
+      }
       break;
 
     case STATE_BATTERY_E:
+      Led.blink (-1, 1000, 0);
+      LiCharger.stop ();                   // Stop battery charging
+      digitalWrite (OUT_MOSFET_PIN, LOW);  // Activate output power
+      digitalWrite (BATT_MOSFET_PIN, LOW); // Activate battery power
+      digitalWrite (IN_MOSFET_PIN, HIGH);  // Deactivate external power
+      delayTs = ts;
       G.stateStr = Str.BATTERY;
+      Cli.xputs(G.stateStr);
       G.state = STATE_BATTERY;
     case STATE_BATTERY:
+
+      // Monitor the battery voltage, adapt LED duty cycle and initiate shutdown if needed
+      if      (G.vBatt < (uint32_t)V_BATT_THR_LOW) G.state = STATE_SHUTDOWN_E;
+      else if (G.vBatt < (uint32_t)V_BATT_THR_25) Led.blink (-1, 250, 750);
+      else if (G.vBatt < (uint32_t)V_BATT_THR_50) Led.blink (-1, 500, 500);
+      else if (G.vBatt < (uint32_t)V_BATT_THR_75) Led.blink (-1, 750, 250);
+
+      // Switch back to external power if V_in is above the specified threshold during EXTERNAL_DELAY
+      if (G.vIn < (uint32_t) V_IN_THR_EXTERNAL) delayTs = ts;
+      if (ts - delayTs > EXTERNAL_DELAY) G.state = STATE_EXTERNAL_E;
       break;
 
     case STATE_SHUTDOWN_E:
+      Led.blink (-1, 100, 100);
+      digitalWrite (OUT_MOSFET_PIN, HIGH);  // Deactivate output power
       G.stateStr = Str.SHUTDOWN;
+      Cli.xputs(G.stateStr);
       G.state = STATE_SHUTDOWN;
     case STATE_SHUTDOWN:
+      // Switch back to external power if V_in is above the specified threshold during EXTERNAL_DELAY
+      if (G.vIn < (uint32_t) V_IN_THR_EXTERNAL) delayTs = ts;
+      if (ts - delayTs > EXTERNAL_DELAY) G.state = STATE_EXTERNAL_E;
       break;
 
     case STATE_CALIBRATE_E:
-      LiCharger.stop ();
+      Led.blink (-1, 500, 1500);
+      LiCharger.stop ();                    // Stop battery charging
+      digitalWrite (OUT_MOSFET_PIN, LOW);   // Activate output power
+      digitalWrite (IN_MOSFET_PIN, LOW);    // Activate external power
+      digitalWrite (BATT_MOSFET_PIN, HIGH); // Deactivate battery power
       G.stateStr = Str.CALIBRATE;
+      Cli.xputs(G.stateStr);
       G.state = STATE_CALIBRATE;
     case STATE_CALIBRATE:
       // Do nothing and wait for a CLI command
       break;
 
     case STATE_ERROR_E:
-      LiCharger.stop ();
+      Led.blink (-1, 200, 200);
+      LiCharger.stop ();                    // Stop battery charging
+      digitalWrite (OUT_MOSFET_PIN, LOW);   // Activate output power
+      digitalWrite (IN_MOSFET_PIN, LOW);    // Activate external power
+      digitalWrite (BATT_MOSFET_PIN, HIGH); // Deactivate battery power
       G.stateStr = Str.ERR;
+      Cli.xputs(G.stateStr);
       G.state = STATE_ERROR;
     case STATE_ERROR:
       // Do nothing and wait for a CLI command
@@ -331,8 +380,9 @@ void nvmRead (void) {
   Cli.xprintf (Str.CRC, crc);
   Cli.xputs("\n");
   
-  if (crc != Nvm.crc) G.crcOk = false;
-  else G.crcOk = true;
+  if (crc != Nvm.crc) {
+    Cli.xputs ("CRC error\n"), G.state = STATE_ERROR_E;
+  }
 }
 
 
@@ -437,7 +487,7 @@ int cmdCal (int argc, char **argv) {
     if      (strcmp(argv[1], "vin"  ) == 0) calVin (vRef);
     else if (strcmp(argv[1], "vups" ) == 0) calVups (vRef);
     else if (strcmp(argv[1], "vbatt") == 0) calVbatt (vRef);
-    else    G.state = STATE_INIT_E, Cli.xputs ("Cal. mode end\n");
+    else    G.state = STATE_EXTERNAL_E, Cli.xputs ("Cal. mode end\n");
   }
   else {
     G.state = STATE_CALIBRATE_E;

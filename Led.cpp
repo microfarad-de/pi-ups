@@ -77,6 +77,7 @@ void LedClass::toggle (void) {
 
 void LedClass::blink (int32_t count, uint32_t tOn, uint32_t tOff) {
   if (!initialized || count == 0) return;
+  if (tOn == this->tOn && tOff == this->tOff) return;
   this->blinking = true;
   this->count = 2 * count;
   this->tOn = tOn;
@@ -89,7 +90,9 @@ void LedClass::blink (int32_t count, uint32_t tOn, uint32_t tOff) {
 void LedClass::blinkStop (void) {
   if (!initialized) return;
   blinking = false;
-  digitalWrite (ledPin, powerOn);  
+  digitalWrite (ledPin, powerOn);
+  this->tOn = 0;
+  this->tOff = 0;
 }
 
 void LedClass::blinkBlocking (int32_t count, uint32_t tOn, uint32_t tOff) {
