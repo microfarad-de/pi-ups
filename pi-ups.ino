@@ -66,9 +66,11 @@
 #define V_BATT_THR_75       3800000   // 3.8 V - V_batt threshold in µV that roughly corresponds to 75% battery charge
 #define V_BATT_THR_50       3600000   // 3.6 V - V_batt threshold in µV that roughly corresponds to 50% battery charge        
 #define V_BATT_THR_25       3400000   // 3.4 V - V_batt threshold in µV that roughly corresponds to 25% battery charge
-#define V_BATT_THR_LOW      3300000   // 3.3 V - V_batt threshold in µV for initiating a system shutdown
+#define V_BATT_THR_LOW      3200000   // 3.2. V - V_batt threshold in µV for initiating a system shutdown
+#define V_BATT_THR_ERROR    1000000   // 1.0 V - V_batt threshold in µV for signalling a battery error
 #define INITIAL_DELAY          2000   // Initial power on delay in ms
 #define EXTERNAL_DELAY         1000   // Delay in ms prior to switching back to external power
+#define HALT_DELAY            60000   // Delay in ms prior turning off power upon system halt
 
 
 
@@ -85,6 +87,16 @@ LiChargerClass LiCharger;
 enum State_t { STATE_INIT_E, STATE_INIT, STATE_EXTERNAL_E, STATE_EXTERNAL, STATE_BATTERY_E, STATE_BATTERY, 
                 STATE_SHUTDOWN_E, STATE_SHUTDOWN, STATE_CALIBRATE_E, STATE_CALIBRATE, STATE_ERROR_E, STATE_ERROR };
 
+/*
+ * A list of error codes
+ * Each code sets a different bit. Codes can be combined via addition.
+ */
+enum Error_t {
+  ERROR_NONE    = 0,   // No errors
+  ERROR_BATTERY = 1,   // Battery error
+  ERROR_CRC     = 2    // CRC error
+};
+
 
 /*
  * Global variables
@@ -98,7 +110,9 @@ struct {
   uint16_t vInRaw;       // Raw ADC value of V_in
   uint16_t vUpsRaw;      // Raw ADC value of V_ups
   uint16_t vBattRaw;     // Raw ADC value of V_batt
+  bool haltConfirm;      // Flag is set when Raspberry Pi confirms an initiated shutdown           
   char *stateStr = 0;    // State as human readable string
+  uint8_t error = 0;     // Error code
 } G;
 
 
@@ -161,10 +175,12 @@ void setup (void) {
   Cli.xputs ("");
   Cli.xprintf ("V %d.%d.%d\n", VERSION_MAJOR, VERSION_MINOR, VERSION_MAINT);
   Cli.xputs ("");
-  Cli.newCmd ("poll", "Automated poll", cmdPoll);
+  Cli.newCmd ("poll", "Automated poll (arg: [halt])", cmdPoll);
+  Cli.newCmd ("p", "", cmdPoll);
+  Cli.newCmd ("clear", "Clear error codes", cmdClear);
   Cli.newCmd (".", "Show status", cmdStatus);
   Cli.newCmd ("e", "Show EEPROM", cmdEEPROM);
-  Cli.newCmd ("cal", "Calibrate (cal [vin|vups|vbatt])", cmdCal);
+  Cli.newCmd ("cal", "Calibrate (arg: [vin|vups|vbatt])", cmdCal);
   Cli.newCmd ("rshunt", "Set R_shunt in mΩ", cmdRshunt);
   Cli.newCmd ("vdiode", "Set V_diode in mV", cmdVdiode);
   Cli.showHelp ();
@@ -191,7 +207,7 @@ void setup (void) {
  * Arduino main loop
  */
 void loop (void) {
-  static uint32_t delayTs;  // Timestamp for measuring delays
+  static uint32_t delayTs, haltTs;  // Timestamp for measuring delays
   uint32_t ts = millis ();  // General purpose millisecond timestamp
 
   // Reset the watchdog timer
@@ -203,12 +219,18 @@ void loop (void) {
   // Update the LED state
   Led.loopHandler ();
 
-
   // Read the ADC channels
   adcRead ();
 
   // Update the battery charger state
   LiCharger.loopHandler (G.vBatt, G.iBatt );
+
+  // Check for battery error
+  if (G.state != STATE_INIT_E && G.state != STATE_INIT && 
+        G.vBatt < V_BATT_THR_ERROR && (G.error & (uint8_t)ERROR_BATTERY) == 0) {
+    G.error = G.error | ERROR_BATTERY;
+    G.state = STATE_ERROR_E;
+  }
 
   // Main state machine
   switch (G.state) {
@@ -256,6 +278,7 @@ void loop (void) {
       else if (G.vBatt < (uint32_t)V_BATT_THR_25) Led.blink (-1, 250, 750);
       else if (G.vBatt < (uint32_t)V_BATT_THR_50) Led.blink (-1, 500, 500);
       else if (G.vBatt < (uint32_t)V_BATT_THR_75) Led.blink (-1, 750, 250);
+      else                                        Led.blink (-1, 1000, 0);
 
       // Switch back to external power if V_in is above the specified threshold during EXTERNAL_DELAY
       if (G.vIn < (uint32_t) V_IN_THR_EXTERNAL) delayTs = ts;
@@ -264,14 +287,28 @@ void loop (void) {
 
     case STATE_SHUTDOWN_E:
       Led.blink (-1, 100, 100);
-      digitalWrite (OUT_MOSFET_PIN, HIGH);  // Deactivate output power
+      G.haltConfirm = false;
       G.stateStr = Str.SHUTDOWN;
       Cli.xputs(G.stateStr);
       G.state = STATE_SHUTDOWN;
     case STATE_SHUTDOWN:
-      // Switch back to external power if V_in is above the specified threshold during EXTERNAL_DELAY
-      if (G.vIn < (uint32_t) V_IN_THR_EXTERNAL) delayTs = ts;
-      if (ts - delayTs > EXTERNAL_DELAY) G.state = STATE_EXTERNAL_E;
+      
+      // Shutdown confirmation has been received
+      if (G.haltConfirm) {
+        // Power down if HALT_DELAY has elapsed
+        if (ts - haltTs > HALT_DELAY) {
+          digitalWrite (OUT_MOSFET_PIN, HIGH);  // Deactivate output power
+          G.haltConfirm = false;
+          delayTs = ts;
+        }
+      }
+      else {
+        // Switch back to external power if V_in is above the specified threshold during EXTERNAL_DELAY
+        if (G.vIn < (uint32_t) V_IN_THR_EXTERNAL) delayTs = ts;
+        if (ts - delayTs > EXTERNAL_DELAY) G.state = STATE_EXTERNAL_E;  
+
+        haltTs = ts;
+      }
       break;
 
     case STATE_CALIBRATE_E:
@@ -294,7 +331,7 @@ void loop (void) {
       digitalWrite (IN_MOSFET_PIN, LOW);    // Activate external power
       digitalWrite (BATT_MOSFET_PIN, HIGH); // Deactivate battery power
       G.stateStr = Str.ERR;
-      Cli.xputs(G.stateStr);
+      Cli.xprintf("ERROR %u\n", G.error);
       G.state = STATE_ERROR;
     case STATE_ERROR:
       // Do nothing and wait for a CLI command
@@ -377,11 +414,13 @@ void nvmRead (void) {
 
   // Calculate and check CRC checksum
   crc = crcCalc ((uint8_t*)&Nvm, sizeof (Nvm) - sizeof (Nvm.crc) );
+  Cli.xputs ("");
   Cli.xprintf (Str.CRC, crc);
-  Cli.xputs("\n");
   
   if (crc != Nvm.crc) {
-    Cli.xputs ("CRC error\n"), G.state = STATE_ERROR_E;
+    Cli.xputs ("CRC error");
+    G.error = G.error | ERROR_CRC;
+    G.state = STATE_ERROR_E;
   }
 }
 
@@ -405,16 +444,48 @@ void nvmWrite (void) {
  */
 int cmdPoll (int argc, char **argv) {
 
+  if (G.state == STATE_SHUTDOWN) {
+    
+    if (strcmp(argv[1], "halt"  ) == 0) {
+      // Recieve system shutdown confirmation
+      G.haltConfirm = true;
+    }
+    if (G.haltConfirm) Cli.xputs ("halting"); // Shutdown confirmed
+    else               Cli.xputs ("halt");    // Request shutdown
+  }
+  else if (G.state == STATE_ERROR) {
+    // System error
+    Cli.xprintf ("error %u\n", G.error);
+  }
+  else if (G.state == STATE_BATTERY) {
+    // Using battery power
+    Cli.xputs ("battery");
+  }
+  else {
+    // System OK
+    Cli.xputs ("ok");
+  }
+
   return 0;
 }
 
-
+/*
+ * CLI command for clearing all the error codes
+ */
+int cmdClear (int argc, char **argv) {
+  Cli.xputs ("cleared");
+  G.error = ERROR_NONE;
+  G.state = STATE_EXTERNAL_E;
+  return 0;
+}
 
 /*
  * CLI command for showing the overall status
  */
 int cmdStatus (int argc, char **argv) {
+  Cli.xputs ("");
   Cli.xprintf ("state      = %s\n", G.stateStr);
+  Cli.xprintf ("error      = %u\n", G.error);
   Cli.xprintf ("V_in       = %lu mV\n", G.vIn / 1000);
   Cli.xprintf ("V_ups      = %lu mV\n", G.vUps / 1000);
   Cli.xprintf ("V_batt     = %lu mV\n", G.vBatt / 1000);
@@ -423,7 +494,7 @@ int cmdStatus (int argc, char **argv) {
   Cli.xprintf ("V_in_raw   = %u\n", G.vInRaw);
   Cli.xprintf ("V_ups_raw  = %u\n", G.vUpsRaw);
   Cli.xprintf ("V_batt_raw = %u\n", G.vBattRaw);
-  Cli.xputs ("");
+
   return 0;
 }
 
@@ -433,13 +504,13 @@ int cmdStatus (int argc, char **argv) {
  * CLI command for displaying the EEPROM settings
  */
 int cmdEEPROM (int argc, char **argv) {
+  Cli.xputs ("");
   Cli.xprintf (Str.V_in_cal,   Nvm.vInCal);
   Cli.xprintf (Str.V_ups_cal,  Nvm.vUpsCal);
   Cli.xprintf (Str.V_batt_cal, Nvm.vBattCal);
   Cli.xprintf (Str.R_shunt,    Nvm.rShunt);
   Cli.xprintf (Str.V_diode,    Nvm.vDiode);
   Cli.xprintf (Str.CRC,        Nvm.crc);
-  Cli.xputs ("");
   return 0;
 }
 
@@ -452,7 +523,6 @@ int cmdRshunt (int argc, char **argv) {
   Nvm.rShunt = atoi (argv[1]);
   nvmWrite ();
   Cli.xprintf(Str.R_shunt, Nvm.rShunt);
-  Cli.xputs("");
   return 0;
 }
 
@@ -465,7 +535,6 @@ int cmdVdiode (int argc, char **argv) {
   Nvm.vDiode = atoi (argv[1]);
   nvmWrite ();
   Cli.xprintf(Str.V_diode, Nvm.vDiode);
-  Cli.xputs("");
   return 0;
 }
 
@@ -487,14 +556,11 @@ int cmdCal (int argc, char **argv) {
     if      (strcmp(argv[1], "vin"  ) == 0) calVin (vRef);
     else if (strcmp(argv[1], "vups" ) == 0) calVups (vRef);
     else if (strcmp(argv[1], "vbatt") == 0) calVbatt (vRef);
-    else    G.state = STATE_EXTERNAL_E, Cli.xputs ("Cal. mode end\n");
+    else    G.state = STATE_EXTERNAL_E, Cli.xputs ("Cal. mode end");
   }
   else {
     G.state = STATE_CALIBRATE_E;
-    Cli.xputs ("Cal. mode begin\n");        
-    //Cli.xprintf ("V_in_ref   = %lu mV\n", V_IN_REF / 1000);
-    //Cli.xprintf ("V_ups_ref  = %lu mV\n", V_UPS_REF / 1000);
-    //Cli.xprintf ("V_batt_ref = %lu mV\n\n", V_BATT_REF / 1000);
+    Cli.xputs ("Cal. mode begin");        
   }
   return 0;
 }
@@ -507,7 +573,6 @@ void calVin (uint32_t vRef) {
   Nvm.vInCal = (uint32_t)vRef / (uint32_t)G.vInRaw;
   nvmWrite ();
   Cli.xprintf (Str.V_in_cal, Nvm.vInCal);
-  Cli.xputs ("");
 }
 
 
@@ -518,7 +583,6 @@ void calVups (uint32_t vRef) {
   Nvm.vUpsCal = (uint32_t)vRef / (uint32_t)G.vUpsRaw;
   nvmWrite ();
   Cli.xprintf (Str.V_ups_cal, Nvm.vUpsCal);
-  Cli.xputs ("");
 }
 
 
@@ -529,5 +593,4 @@ void calVbatt (uint32_t vRef) {
   Nvm.vBattCal = (uint32_t)vRef / (uint32_t)G.vBattRaw;
   nvmWrite ();
   Cli.xprintf (Str.V_batt_cal, Nvm.vBattCal);
-  Cli.xputs ("");
 }

@@ -148,7 +148,6 @@ int CliClass::getCmd (void)
         }
       }        
       xprintf("Unknown '%s'\n", argv[0]);
-      xputs("");
       break;
 
     default:       
@@ -186,7 +185,8 @@ void CliClass::showHelp (void)
 
   // Sort commands in alphabetical order
   sortCmds(numCmds, cmd);
-
+  
+  Cli.xputs ("");
   xprintf("Commands:\n");
 
   // Display commands
@@ -227,7 +227,6 @@ void CliClass::showHelp (void)
   textPadding(' ', INDENT - 3 - 2);
   xprintf(": ");
   textPrintBlock("help screen", TEXT_LINE_SIZE, INDENT);
-  xputs("");
 }
 
 
