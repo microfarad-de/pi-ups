@@ -170,6 +170,11 @@ void setup (void) {
   MCUSR = 0;      // clear MCU status register
   wdt_disable (); // and disable watchdog
 
+  // Initialize the Timer 2 PWM frequency for pins 3 and 11 
+  // see https://etechnophiles.com/change-frequency-pwm-pins-arduino-uno/
+  // see ATmega328P datasheet Section 2.11.2, Table 22-10
+  TCCR2B = TCCR2B & B11111000 | B00000001; // for PWM frequency of 31372.55 Hz
+
   // Initialize pins
   pinMode (CHG_MOSFET_PIN, OUTPUT);
   pinMode (IN_MOSFET_PIN, OUTPUT);
@@ -194,7 +199,6 @@ void setup (void) {
   Cli.newCmd (".", "", cmdStatus);
   Cli.newCmd ("e", "EEPROM status", cmdEEPROM);
   Cli.newCmd ("halt", "Initiate shutdown", cmdHalt);
-  Cli.newCmd ("clear", "Clear error codes", cmdClear);
   Cli.newCmd ("cal", "Calibrate (arg: [vin|vups|vbatt])", cmdCal);
   Cli.newCmd ("rshunt", "Set R_shunt in mΩ", cmdRshunt);
   Cli.newCmd ("vdiode", "Set V_diode in mV", cmdVdiode);
@@ -329,6 +333,11 @@ void loop (void) {
       if (!G.shutdown) {
         Led.blink (-1, 200, 200);
       }
+
+      // Exit error state if no errors
+      if (G.error == ERROR_NONE) {
+        G.state = STATE_EXTERNAL_E;
+      }
       break;
 
     default:
@@ -445,8 +454,11 @@ void nvmRead (void) {
   
   if (crc != Nvm.crc) {
     Cli.xputs ("CRC error");
-    G.error = G.error | ERROR_CRC;
+    G.error |= ERROR_CRC;
     G.state = STATE_ERROR_E;
+  }
+  else {
+    G.error &= ~ERROR_CRC;
   }
 }
 
@@ -473,10 +485,14 @@ void checkBattState (void) {
   else                                         G.battState = BATT_STATE_100;
 
   // Check for battery error
-  if (G.state != STATE_INIT_E && G.state != STATE_INIT && 
-        G.vBatt < V_BATT_THR_ERROR && (G.error & (uint8_t)ERROR_BATTERY) == 0) {
-    G.error = G.error | ERROR_BATTERY;
-    G.state = STATE_ERROR_E;
+  if (G.state != STATE_INIT_E && G.state != STATE_INIT && G.vBatt < V_BATT_THR_ERROR) {
+    if ((G.error & (uint8_t)ERROR_BATTERY) == 0) {
+       G.error |= ERROR_BATTERY;
+       G.state = STATE_ERROR_E;
+    }
+  }
+  else {
+    G.error &= ~ERROR_BATTERY;
   }
 }
 
@@ -515,15 +531,6 @@ int cmdHalt (int argc, char **argv) {
   return 0;
 }
 
-/*
- * CLI command for clearing all the error codes
- */
-int cmdClear (int argc, char **argv) {
-  Cli.xputs ("cleared");
-  G.error = ERROR_NONE;
-  G.state = STATE_EXTERNAL_E;
-  return 0;
-}
 
 /*
  * CLI command for showing the detailed system status
