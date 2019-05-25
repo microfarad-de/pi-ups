@@ -68,6 +68,7 @@
 #define V_BATT_THR_25       3400000   // 3.4 V - V_batt threshold in µV that roughly corresponds to 25% battery charge
 #define V_BATT_THR_LOW      3200000   // 3.2. V - V_batt threshold in µV for initiating a system shutdown
 #define V_BATT_THR_ERROR    1000000   // 1.0 V - V_batt threshold in µV for signalling a battery error
+#define V_UPS_THR_ERROR     4900000   // 4.9 V - V_ups threshold in µV for signalling a DC-DC converter error
 #define INITIAL_DELAY          5000   // Initial power on delay in ms
 #define EXTERNAL_DELAY         1000   // Delay in ms prior to switching back to external power
 #define SHUTDOWN_DELAY        60000   // Delay in ms prior to turning off power upon system shutdown
@@ -95,7 +96,8 @@ enum State_t { STATE_INIT_E, STATE_INIT, STATE_EXTERNAL_E, STATE_EXTERNAL, STATE
 enum Error_t {
   ERROR_NONE    = 0,   // No errors
   ERROR_BATTERY = 1,   // Battery error
-  ERROR_CRC     = 2    // CRC error
+  ERROR_DCDC    = 2,   // DC-DC converter error
+  ERROR_CRC     = 128  // CRC error
 };
 
 
@@ -182,7 +184,7 @@ void setup (void) {
   pinMode (BATT_MOSFET_PIN, OUTPUT);
   analogWrite (CHG_MOSFET_PIN, 255);     // Active low: max duty cycle means the MOSFET is off
   digitalWrite (IN_MOSFET_PIN, LOW);     // Active low: LOW means the MOSFET is on
-  digitalWrite (OUT_MOSFET_PIN, HIGH);   // Active low: HIGH means the MOSFET is off
+  digitalWrite (OUT_MOSFET_PIN, LOW);    // Active low: LOW means the MOSFET is on
   digitalWrite (BATT_MOSFET_PIN, HIGH);  // Active low: HIGH means the MOSFET is off
   
   
@@ -484,15 +486,29 @@ void checkBattState (void) {
   else if (G.vBatt < (uint32_t)V_BATT_THR_75)  G.battState = BATT_STATE_75;
   else                                         G.battState = BATT_STATE_100;
 
-  // Check for battery error
-  if (G.state != STATE_INIT_E && G.state != STATE_INIT && G.vBatt < V_BATT_THR_ERROR) {
-    if ((G.error & (uint8_t)ERROR_BATTERY) == 0) {
-       G.error |= ERROR_BATTERY;
-       G.state = STATE_ERROR_E;
+  if (G.state != STATE_INIT_E && G.state != STATE_INIT) {
+    
+    // Check for battery error
+    if  (G.vBatt < V_BATT_THR_ERROR) {
+      if ((G.error & (uint8_t)ERROR_BATTERY) == 0) {
+         G.error |= ERROR_BATTERY;
+         G.state = STATE_ERROR_E;
+      }
     }
-  }
-  else {
-    G.error &= ~ERROR_BATTERY;
+    else {
+      G.error &= ~ERROR_BATTERY;
+    }
+  
+    // Check for DC-DC converter error
+    if (G.vUps < V_UPS_THR_ERROR) {
+      if ((G.error & (uint8_t)ERROR_DCDC) == 0) {
+         G.error |= ERROR_DCDC;
+         G.state = STATE_ERROR_E;
+      }
+    }
+    else {
+      G.error &= ~ERROR_DCDC;
+    }
   }
 }
 
