@@ -318,7 +318,6 @@ void loop (void) {
       break;
 
     case STATE_ERROR_E:
-      Led.blink (-1, 200, 200);
       LiCharger.stop ();                    // Stop battery charging
       digitalWrite (IN_MOSFET_PIN, LOW);    // Activate external power
       digitalWrite (BATT_MOSFET_PIN, HIGH); // Deactivate battery power
@@ -327,7 +326,9 @@ void loop (void) {
       Cli.xputs ("");
       G.state = STATE_ERROR;
     case STATE_ERROR:
-      // Do nothing and wait for a CLI command
+      if (!G.shutdown) {
+        Led.blink (-1, 200, 200);
+      }
       break;
 
     default:
@@ -485,7 +486,7 @@ void checkBattState (void) {
  * CLI command reporting the brief system status
  */
 int cmdStat (int argc, char **argv) {
-  if (G.shutdown || digitalRead (OUT_MOSFET_PIN) == HIGH)  {
+  if (G.shutdown)  {
     Cli.xprintf (Str.SHUTDOWN, digitalRead (OUT_MOSFET_PIN));
   }
   else if (G.state == STATE_BATTERY) {
@@ -506,7 +507,7 @@ int cmdStat (int argc, char **argv) {
  * CLI command for initiating a system shutdown
  */
 int cmdHalt (int argc, char **argv) {
-  if (G.state == STATE_EXTERNAL || G.state == STATE_BATTERY) {
+  if (G.state != STATE_CALIBRATE_E && G.state != STATE_CALIBRATE) {
     Cli.xprintf (Str.SHUTDOWN, digitalRead (OUT_MOSFET_PIN));
     Cli.xputs ("");
     G.shutdown = true; 
@@ -539,7 +540,7 @@ int cmdStatus (int argc, char **argv) {
   else {
     Cli.xprintf (G.stateStr);
   }
-  if (G.shutdown || digitalRead (OUT_MOSFET_PIN) == HIGH)  {
+  if (G.shutdown)  {
     Cli.xprintf (" ");
     Cli.xprintf (Str.SHUTDOWN, digitalRead (OUT_MOSFET_PIN));
   }
