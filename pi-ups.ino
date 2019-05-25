@@ -58,7 +58,7 @@
 /*
  * Configuration parameters
  */
-#define SERIAL_BAUD          115200   // Serial communication baud rate
+#define SERIAL_BAUD           19200   // Serial communication baud rate
 #define I_CHRG                  500   // 500mA - Constant charging current in mA
 #define ADC_AVG_SAMPLES          16   // Number of ADC samples to be averaged
 #define V_IN_THR_BATTERY    4900000   // 4.85 V - V_in thershold in µV below which the UPS will switch to battery power
