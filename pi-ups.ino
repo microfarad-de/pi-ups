@@ -70,7 +70,8 @@
 #define V_BATT_THR_ERROR    1000000   // 1.0 V - V_batt threshold in µV for signalling a battery error
 #define INITIAL_DELAY          5000   // Initial power on delay in ms
 #define EXTERNAL_DELAY         1000   // Delay in ms prior to switching back to external power
-#define HALT_DELAY            60000   // Delay in ms prior turning off power upon system halt
+#define SHUTDOWN_DELAY        60000   // Delay in ms prior to turning off power upon system shutdown
+#define RESTART_DELAY          5000   // Delay in ms prior to restarting the system following a shutdown
 
 
 
@@ -85,7 +86,7 @@ LiChargerClass LiCharger;
  * State machine states
  */
 enum State_t { STATE_INIT_E, STATE_INIT, STATE_EXTERNAL_E, STATE_EXTERNAL, STATE_BATTERY_E, STATE_BATTERY, 
-                STATE_SHUTDOWN_E, STATE_SHUTDOWN, STATE_CALIBRATE_E, STATE_CALIBRATE, STATE_ERROR_E, STATE_ERROR };
+                 STATE_CALIBRATE_E, STATE_CALIBRATE, STATE_ERROR_E, STATE_ERROR };
 
 /*
  * A list of error codes
@@ -123,6 +124,7 @@ struct {
   uint16_t vBattRaw;     // Raw ADC value of V_batt 
   BattState_t battState; // Battery st      
   uint8_t error = 0;     // Error code
+  bool shutdown = false; // System shutdown command
   char *stateStr = 0;    // System status as human readable string
 } G;
 
@@ -154,7 +156,7 @@ const struct {
   char *CRC        = (char *)"CRC        = %lx\n";
   char *EXTERN     = (char *)"EXTERNAL";
   char *BATTERY    = (char *)"BATTERY %u";
-  char *SHUTDOWN   = (char *)"SHUTDOWN";
+  char *SHUTDOWN   = (char *)"SHUTDOWN %u";
   char *CALIBRATE  = (char *)"CALIBRATE";
   char *ERR        = (char *)"ERROR %u";
 } Str;
@@ -219,7 +221,7 @@ void setup (void) {
  * Arduino main loop
  */
 void loop (void) {
-  static uint32_t delayTs, haltTs;  // Timestamp for measuring delays
+  static uint32_t delayTs;  // Timestamp for measuring delays
   uint32_t ts = millis ();  // General purpose millisecond timestamp
 
   // Reset the watchdog timer
@@ -240,30 +242,36 @@ void loop (void) {
   // Check the battery state
   checkBattState ();
 
+  // Handle shutdown command
+  shutdown ();
  
   // Main state machine
   switch (G.state) {
 
     case STATE_INIT_E:
+      G.shutdown = false;
       delayTs = ts;
       G.state = STATE_INIT;
     case STATE_INIT:
       // Wait for the ADC to stabilize before starting-up
       if (ts - delayTs > (uint32_t)INITIAL_DELAY) {
+        digitalWrite (OUT_MOSFET_PIN, LOW);   // Activate output power
         G.state = STATE_EXTERNAL_E;
       }
       break;
       
     case STATE_EXTERNAL_E:
-      Led.blink (-1, 100, 1900);
       LiCharger.start ();                   // Start battery charging
-      digitalWrite (OUT_MOSFET_PIN, LOW);   // Activate output power
       digitalWrite (IN_MOSFET_PIN, LOW);    // Activate external power
       digitalWrite (BATT_MOSFET_PIN, HIGH); // Deactivate battery power
       G.stateStr = Str.EXTERN;
       Cli.xputs(G.stateStr);
       G.state = STATE_EXTERNAL;
     case STATE_EXTERNAL:
+
+      if (!G.shutdown) {
+        Led.blink (-1, 100, 1900);
+      }
       // Switch to battery power if V_in is below the specified threshold
       if (G.vIn < (uint32_t)V_IN_THR_BATTERY) {
         G.state = STATE_BATTERY_E;
@@ -271,9 +279,7 @@ void loop (void) {
       break;
 
     case STATE_BATTERY_E:
-      Led.blink (-1, 1000, 0);
       LiCharger.stop ();                   // Stop battery charging
-      digitalWrite (OUT_MOSFET_PIN, LOW);  // Activate output power
       digitalWrite (BATT_MOSFET_PIN, LOW); // Activate battery power
       digitalWrite (IN_MOSFET_PIN, HIGH);  // Deactivate external power
       delayTs = ts;
@@ -283,37 +289,18 @@ void loop (void) {
       G.state = STATE_BATTERY;
     case STATE_BATTERY:
 
-      // Adapt the LED blinking duty cycle according to batter voltage
-      if      (G.battState == BATT_STATE_0)  Led.blink (-1, 100, 100);
-      else if (G.battState == BATT_STATE_25) Led.blink (-1, 250, 750);
-      else if (G.battState == BATT_STATE_50) Led.blink (-1, 500, 500);
-      else if (G.battState == BATT_STATE_75) Led.blink (-1, 750, 250);
-      else                                   Led.blink (-1, 1000, 0);
+      if (!G.shutdown) {
+        // Adapt the LED blinking duty cycle according to batter voltage
+        if      (G.battState == BATT_STATE_0)  Led.blink (-1, 100, 100);
+        else if (G.battState == BATT_STATE_25) Led.blink (-1, 250, 750);
+        else if (G.battState == BATT_STATE_50) Led.blink (-1, 500, 500);
+        else if (G.battState == BATT_STATE_75) Led.blink (-1, 750, 250);
+        else                                   Led.blink (-1, 1000, 0);
+      }
 
       // Switch back to external power if V_in is above the specified threshold during EXTERNAL_DELAY
       if (G.vIn < (uint32_t) V_IN_THR_EXTERNAL) delayTs = ts;
       if (ts - delayTs > EXTERNAL_DELAY) G.state = STATE_EXTERNAL_E;
-      break;
-
-    case STATE_SHUTDOWN_E:
-      Led.blink (-1, 50, 50);
-      haltTs = ts;
-      G.stateStr = Str.SHUTDOWN;
-      Cli.xputs(G.stateStr);
-      G.state = STATE_SHUTDOWN;
-    case STATE_SHUTDOWN:
-      
-      // Power down if HALT_DELAY has elapsed
-      if (ts - haltTs > HALT_DELAY) {
-        digitalWrite (OUT_MOSFET_PIN, HIGH);  // Deactivate output power
-
-        // Switch back to external power if V_in is above the specified threshold during EXTERNAL_DELAY
-        if (G.vIn < (uint32_t) V_IN_THR_EXTERNAL) delayTs = ts;
-        if (ts - delayTs > EXTERNAL_DELAY) G.state = STATE_EXTERNAL_E;  
-      }
-      else {
-        delayTs = ts;
-      }
       break;
 
     case STATE_CALIBRATE_E:
@@ -322,6 +309,7 @@ void loop (void) {
       digitalWrite (OUT_MOSFET_PIN, LOW);   // Activate output power
       digitalWrite (IN_MOSFET_PIN, LOW);    // Activate external power
       digitalWrite (BATT_MOSFET_PIN, HIGH); // Deactivate battery power
+      G.shutdown = false;
       G.stateStr = Str.CALIBRATE;
       Cli.xputs(G.stateStr);
       G.state = STATE_CALIBRATE;
@@ -332,7 +320,6 @@ void loop (void) {
     case STATE_ERROR_E:
       Led.blink (-1, 200, 200);
       LiCharger.stop ();                    // Stop battery charging
-      digitalWrite (OUT_MOSFET_PIN, LOW);   // Activate output power
       digitalWrite (IN_MOSFET_PIN, LOW);    // Activate external power
       digitalWrite (BATT_MOSFET_PIN, HIGH); // Deactivate battery power
       G.stateStr = Str.ERR;
@@ -351,6 +338,38 @@ void loop (void) {
 }
 
 
+
+/*
+ * Shutdown routine
+ */
+void shutdown (void) {
+  static uint32_t shutdownTs;
+  uint32_t ts = millis ();
+
+  if (G.shutdown) {
+    Led.blink (-1, 50, 50);
+    
+    if  (digitalRead (OUT_MOSFET_PIN) == LOW) {  
+    
+      // Power down if HALT_DELAY has elapsed
+      if (ts - shutdownTs > SHUTDOWN_DELAY) {
+        digitalWrite (OUT_MOSFET_PIN, HIGH);  // Deactivate output power
+        shutdownTs = ts;
+      }
+    }
+    else {
+      
+      // Power up if RESTART_DELAY has elapsed and not on battery power
+      if (ts - shutdownTs > RESTART_DELAY && G.state != STATE_BATTERY) {
+        digitalWrite (OUT_MOSFET_PIN, LOW);  // Activate output power
+        G.shutdown = false;
+      } 
+    }    
+  }
+  else {
+    shutdownTs = ts;
+  }      
+}
 
 
 
@@ -466,7 +485,10 @@ void checkBattState (void) {
  * CLI command reporting the brief system status
  */
 int cmdStat (int argc, char **argv) {
-  if (G.state == STATE_BATTERY) {
+  if (G.shutdown || digitalRead (OUT_MOSFET_PIN) == HIGH)  {
+    Cli.xprintf (Str.SHUTDOWN, digitalRead (OUT_MOSFET_PIN));
+  }
+  else if (G.state == STATE_BATTERY) {
     Cli.xprintf (G.stateStr, G.battState);   
   }
   else if (G.state == STATE_ERROR) {
@@ -484,9 +506,10 @@ int cmdStat (int argc, char **argv) {
  * CLI command for initiating a system shutdown
  */
 int cmdHalt (int argc, char **argv) {
-  if (G.state == STATE_BATTERY) {
-    Cli.xputs (Str.SHUTDOWN);
-    G.state = STATE_SHUTDOWN_E;    
+  if (G.state == STATE_EXTERNAL || G.state == STATE_BATTERY) {
+    Cli.xprintf (Str.SHUTDOWN, digitalRead (OUT_MOSFET_PIN));
+    Cli.xputs ("");
+    G.shutdown = true; 
   }
   return 0;
 }
@@ -515,6 +538,10 @@ int cmdStatus (int argc, char **argv) {
   }
   else {
     Cli.xprintf (G.stateStr);
+  }
+  if (G.shutdown || digitalRead (OUT_MOSFET_PIN) == HIGH)  {
+    Cli.xprintf (" ");
+    Cli.xprintf (Str.SHUTDOWN, digitalRead (OUT_MOSFET_PIN));
   }
   Cli.xputs ("");
   Cli.xprintf ("battery    = %u\n", G.battState);
