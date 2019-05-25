@@ -68,7 +68,7 @@
 #define V_BATT_THR_25       3400000   // 3.4 V - V_batt threshold in µV that roughly corresponds to 25% battery charge
 #define V_BATT_THR_LOW      3200000   // 3.2. V - V_batt threshold in µV for initiating a system shutdown
 #define V_BATT_THR_ERROR    1000000   // 1.0 V - V_batt threshold in µV for signalling a battery error
-#define INITIAL_DELAY          2000   // Initial power on delay in ms
+#define INITIAL_DELAY          5000   // Initial power on delay in ms
 #define EXTERNAL_DELAY         1000   // Delay in ms prior to switching back to external power
 #define HALT_DELAY            60000   // Delay in ms prior turning off power upon system halt
 
@@ -99,6 +99,17 @@ enum Error_t {
 
 
 /*
+ * Battery states
+ */
+enum BattState_t {
+  BATT_STATE_0   = 0,    // Low battery
+  BATT_STATE_25  = 25,   // 25%
+  BATT_STATE_50  = 50,   // 50%
+  BATT_STATE_75  = 75,   // 75%
+  BATT_STATE_100 = 100   // 100%
+};
+
+/*
  * Global variables
  */
 struct {
@@ -109,10 +120,10 @@ struct {
   uint64_t iBatt;        // I_batt - Battery charging current in µA
   uint16_t vInRaw;       // Raw ADC value of V_in
   uint16_t vUpsRaw;      // Raw ADC value of V_ups
-  uint16_t vBattRaw;     // Raw ADC value of V_batt
-  bool haltConfirm;      // Flag is set when Raspberry Pi confirms an initiated shutdown           
-  char *stateStr = 0;    // State as human readable string
+  uint16_t vBattRaw;     // Raw ADC value of V_batt 
+  BattState_t battState; // Battery st      
   uint8_t error = 0;     // Error code
+  char *stateStr = 0;    // System status as human readable string
 } G;
 
 
@@ -142,10 +153,10 @@ const struct {
   char *V_batt_cal = (char *)"V_batt_cal = %lu\n";
   char *CRC        = (char *)"CRC        = %lx\n";
   char *EXTERN     = (char *)"EXTERNAL";
-  char *BATTERY    = (char *)"BATTERY";
+  char *BATTERY    = (char *)"BATTERY %u";
   char *SHUTDOWN   = (char *)"SHUTDOWN";
   char *CALIBRATE  = (char *)"CALIBRATE";
-  char *ERR        = (char *)"ERROR";
+  char *ERR        = (char *)"ERROR %u";
 } Str;
 
 
@@ -175,11 +186,13 @@ void setup (void) {
   Cli.xputs ("");
   Cli.xprintf ("V %d.%d.%d\n", VERSION_MAJOR, VERSION_MINOR, VERSION_MAINT);
   Cli.xputs ("");
-  Cli.newCmd ("poll", "Automated poll (arg: [halt])", cmdPoll);
-  Cli.newCmd ("p", "", cmdPoll);
+  Cli.newCmd ("stat", "Brief status", cmdStat);
+  Cli.newCmd ("s", "", cmdStat);
+  Cli.newCmd ("status", "Detaild status", cmdStatus);
+  Cli.newCmd (".", "", cmdStatus);
+  Cli.newCmd ("e", "EEPROM status", cmdEEPROM);
+  Cli.newCmd ("halt", "Initiate shutdown", cmdHalt);
   Cli.newCmd ("clear", "Clear error codes", cmdClear);
-  Cli.newCmd (".", "Show status", cmdStatus);
-  Cli.newCmd ("e", "Show EEPROM", cmdEEPROM);
   Cli.newCmd ("cal", "Calibrate (arg: [vin|vups|vbatt])", cmdCal);
   Cli.newCmd ("rshunt", "Set R_shunt in mΩ", cmdRshunt);
   Cli.newCmd ("vdiode", "Set V_diode in mV", cmdVdiode);
@@ -196,7 +209,6 @@ void setup (void) {
 
   // Read the settings from EEPROM
   nvmRead ();
-
 
   // Enable the watchdog
   wdt_enable (WDTO_1S);
@@ -223,15 +235,12 @@ void loop (void) {
   adcRead ();
 
   // Update the battery charger state
-  LiCharger.loopHandler (G.vBatt, G.iBatt );
+  LiCharger.loopHandler (G.vBatt, G.iBatt);
 
-  // Check for battery error
-  if (G.state != STATE_INIT_E && G.state != STATE_INIT && 
-        G.vBatt < V_BATT_THR_ERROR && (G.error & (uint8_t)ERROR_BATTERY) == 0) {
-    G.error = G.error | ERROR_BATTERY;
-    G.state = STATE_ERROR_E;
-  }
+  // Check the battery state
+  checkBattState ();
 
+ 
   // Main state machine
   switch (G.state) {
 
@@ -269,16 +278,17 @@ void loop (void) {
       digitalWrite (IN_MOSFET_PIN, HIGH);  // Deactivate external power
       delayTs = ts;
       G.stateStr = Str.BATTERY;
-      Cli.xputs(G.stateStr);
+      Cli.xprintf (G.stateStr, G.battState);
+      Cli.xputs ("");
       G.state = STATE_BATTERY;
     case STATE_BATTERY:
 
-      // Monitor the battery voltage, adapt LED duty cycle and initiate shutdown if needed
-      if      (G.vBatt < (uint32_t)V_BATT_THR_LOW) G.state = STATE_SHUTDOWN_E;
-      else if (G.vBatt < (uint32_t)V_BATT_THR_25) Led.blink (-1, 250, 750);
-      else if (G.vBatt < (uint32_t)V_BATT_THR_50) Led.blink (-1, 500, 500);
-      else if (G.vBatt < (uint32_t)V_BATT_THR_75) Led.blink (-1, 750, 250);
-      else                                        Led.blink (-1, 1000, 0);
+      // Adapt the LED blinking duty cycle according to batter voltage
+      if      (G.battState == BATT_STATE_0)  Led.blink (-1, 100, 100);
+      else if (G.battState == BATT_STATE_25) Led.blink (-1, 250, 750);
+      else if (G.battState == BATT_STATE_50) Led.blink (-1, 500, 500);
+      else if (G.battState == BATT_STATE_75) Led.blink (-1, 750, 250);
+      else                                   Led.blink (-1, 1000, 0);
 
       // Switch back to external power if V_in is above the specified threshold during EXTERNAL_DELAY
       if (G.vIn < (uint32_t) V_IN_THR_EXTERNAL) delayTs = ts;
@@ -286,28 +296,23 @@ void loop (void) {
       break;
 
     case STATE_SHUTDOWN_E:
-      Led.blink (-1, 100, 100);
-      G.haltConfirm = false;
+      Led.blink (-1, 50, 50);
+      haltTs = ts;
       G.stateStr = Str.SHUTDOWN;
       Cli.xputs(G.stateStr);
       G.state = STATE_SHUTDOWN;
     case STATE_SHUTDOWN:
       
-      // Shutdown confirmation has been received
-      if (G.haltConfirm) {
-        // Power down if HALT_DELAY has elapsed
-        if (ts - haltTs > HALT_DELAY) {
-          digitalWrite (OUT_MOSFET_PIN, HIGH);  // Deactivate output power
-          G.haltConfirm = false;
-          delayTs = ts;
-        }
-      }
-      else {
+      // Power down if HALT_DELAY has elapsed
+      if (ts - haltTs > HALT_DELAY) {
+        digitalWrite (OUT_MOSFET_PIN, HIGH);  // Deactivate output power
+
         // Switch back to external power if V_in is above the specified threshold during EXTERNAL_DELAY
         if (G.vIn < (uint32_t) V_IN_THR_EXTERNAL) delayTs = ts;
         if (ts - delayTs > EXTERNAL_DELAY) G.state = STATE_EXTERNAL_E;  
-
-        haltTs = ts;
+      }
+      else {
+        delayTs = ts;
       }
       break;
 
@@ -331,7 +336,8 @@ void loop (void) {
       digitalWrite (IN_MOSFET_PIN, LOW);    // Activate external power
       digitalWrite (BATT_MOSFET_PIN, HIGH); // Deactivate battery power
       G.stateStr = Str.ERR;
-      Cli.xprintf("ERROR %u\n", G.error);
+      Cli.xprintf(G.stateStr, G.error);
+      Cli.xputs ("");
       G.state = STATE_ERROR;
     case STATE_ERROR:
       // Do nothing and wait for a CLI command
@@ -435,37 +441,53 @@ void nvmWrite (void) {
 }
 
 
+/*
+ * Check the battery state
+ */
+void checkBattState (void) {
+  // Check the battery voltage
+  if      (G.vBatt < (uint32_t)V_BATT_THR_LOW) G.battState = BATT_STATE_0;
+  else if (G.vBatt < (uint32_t)V_BATT_THR_25)  G.battState = BATT_STATE_25;
+  else if (G.vBatt < (uint32_t)V_BATT_THR_50)  G.battState = BATT_STATE_50;
+  else if (G.vBatt < (uint32_t)V_BATT_THR_75)  G.battState = BATT_STATE_75;
+  else                                         G.battState = BATT_STATE_100;
+
+  // Check for battery error
+  if (G.state != STATE_INIT_E && G.state != STATE_INIT && 
+        G.vBatt < V_BATT_THR_ERROR && (G.error & (uint8_t)ERROR_BATTERY) == 0) {
+    G.error = G.error | ERROR_BATTERY;
+    G.state = STATE_ERROR_E;
+  }
+}
 
 
 
 /*
- * CLI command for periodically polling of the UPS status
- * by the Raspberry Pi
+ * CLI command reporting the brief system status
  */
-int cmdPoll (int argc, char **argv) {
-
-  if (G.state == STATE_SHUTDOWN) {
-    
-    if (strcmp(argv[1], "halt"  ) == 0) {
-      // Recieve system shutdown confirmation
-      G.haltConfirm = true;
-    }
-    if (G.haltConfirm) Cli.xputs ("halting"); // Shutdown confirmed
-    else               Cli.xputs ("halt");    // Request shutdown
+int cmdStat (int argc, char **argv) {
+  if (G.state == STATE_BATTERY) {
+    Cli.xprintf (G.stateStr, G.battState);   
   }
   else if (G.state == STATE_ERROR) {
-    // System error
-    Cli.xprintf ("error %u\n", G.error);
-  }
-  else if (G.state == STATE_BATTERY) {
-    // Using battery power
-    Cli.xputs ("battery");
+    Cli.xprintf (G.stateStr, G.error);
   }
   else {
-    // System OK
-    Cli.xputs ("ok");
+    Cli.xprintf (G.stateStr);
   }
+  Cli.xputs("");
+  return 0;
+}
 
+
+/*
+ * CLI command for initiating a system shutdown
+ */
+int cmdHalt (int argc, char **argv) {
+  if (G.state == STATE_BATTERY) {
+    Cli.xputs (Str.SHUTDOWN);
+    G.state = STATE_SHUTDOWN_E;    
+  }
   return 0;
 }
 
@@ -480,12 +502,22 @@ int cmdClear (int argc, char **argv) {
 }
 
 /*
- * CLI command for showing the overall status
+ * CLI command for showing the detailed system status
  */
 int cmdStatus (int argc, char **argv) {
   Cli.xputs ("");
-  Cli.xprintf ("state      = %s\n", G.stateStr);
-  Cli.xprintf ("error      = %u\n", G.error);
+  Cli.xprintf ("state      = ");
+  if (G.state == STATE_BATTERY) {
+    Cli.xprintf (G.stateStr, G.battState);   
+  }
+  else if (G.state == STATE_ERROR) {
+    Cli.xprintf (G.stateStr, G.error);
+  }
+  else {
+    Cli.xprintf (G.stateStr);
+  }
+  Cli.xputs ("");
+  Cli.xprintf ("battery    = %u\n", G.battState);
   Cli.xprintf ("V_in       = %lu mV\n", G.vIn / 1000);
   Cli.xprintf ("V_ups      = %lu mV\n", G.vUps / 1000);
   Cli.xprintf ("V_batt     = %lu mV\n", G.vBatt / 1000);
