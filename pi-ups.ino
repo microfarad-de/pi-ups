@@ -254,11 +254,13 @@ void loop (void) {
   // Main state machine
   switch (G.state) {
 
+    // System initialization
     case STATE_INIT_E:
       G.shutdown = false;
       delayTs = ts;
       G.state = STATE_INIT;
     case STATE_INIT:
+    
       // Wait for the ADC to stabilize before starting-up
       if (ts - delayTs > (uint32_t)INITIAL_DELAY) {
         digitalWrite (OUT_MOSFET_PIN, LOW);   // Activate output power
@@ -266,15 +268,17 @@ void loop (void) {
       }
       break;
       
+
+    // Running on external power
     case STATE_EXTERNAL_E:
       LiCharger.start ();                   // Start battery charging
       digitalWrite (IN_MOSFET_PIN, LOW);    // Activate external power
       digitalWrite (BATT_MOSFET_PIN, HIGH); // Deactivate battery power
       G.stateStr = Str.EXTERN;
-      Cli.xputs(G.stateStr);
+      //Cli.xputs(G.stateStr);
       G.state = STATE_EXTERNAL;
     case STATE_EXTERNAL:
-
+    
       if (!G.shutdown) {
         Led.blink (-1, 100, 1900);
       }
@@ -284,14 +288,16 @@ void loop (void) {
       }
       break;
 
+
+    // Running on battery power
     case STATE_BATTERY_E:
       LiCharger.stop ();                   // Stop battery charging
       digitalWrite (BATT_MOSFET_PIN, LOW); // Activate battery power
       digitalWrite (IN_MOSFET_PIN, HIGH);  // Deactivate external power
       delayTs = ts;
       G.stateStr = Str.BATTERY;
-      Cli.xprintf (G.stateStr, G.battState);
-      Cli.xputs ("");
+      //Cli.xprintf (G.stateStr, G.battState);
+      //Cli.xputs ("");
       G.state = STATE_BATTERY;
     case STATE_BATTERY:
 
@@ -309,6 +315,8 @@ void loop (void) {
       if (ts - delayTs > EXTERNAL_DELAY) G.state = STATE_EXTERNAL_E;
       break;
 
+
+    // Voltage calibration mode
     case STATE_CALIBRATE_E:
       Led.blink (-1, 500, 1500);
       LiCharger.stop ();                    // Stop battery charging
@@ -316,20 +324,22 @@ void loop (void) {
       digitalWrite (IN_MOSFET_PIN, LOW);    // Activate external power
       digitalWrite (BATT_MOSFET_PIN, HIGH); // Deactivate battery power
       G.shutdown = false;
-      G.stateStr = Str.CALIBRATE;
-      Cli.xputs(G.stateStr);
+      //G.stateStr = Str.CALIBRATE;
+      //Cli.xputs(G.stateStr);
       G.state = STATE_CALIBRATE;
     case STATE_CALIBRATE:
       // Do nothing and wait for a CLI command
       break;
 
+
+    // Failsafe mode for handling error conditions
     case STATE_ERROR_E:
       LiCharger.stop ();                    // Stop battery charging
       digitalWrite (IN_MOSFET_PIN, LOW);    // Activate external power
       digitalWrite (BATT_MOSFET_PIN, HIGH); // Deactivate battery power
       G.stateStr = Str.ERR;
-      Cli.xprintf(G.stateStr, G.error);
-      Cli.xputs ("");
+      //Cli.xprintf(G.stateStr, G.error);
+      //Cli.xputs ("");
       G.state = STATE_ERROR;
     case STATE_ERROR:
       if (!G.shutdown) {
