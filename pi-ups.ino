@@ -324,7 +324,7 @@ void loop (void) {
       digitalWrite (IN_MOSFET_PIN, LOW);    // Activate external power
       digitalWrite (BATT_MOSFET_PIN, HIGH); // Deactivate battery power
       G.shutdown = false;
-      //G.stateStr = Str.CALIBRATE;
+      G.stateStr = Str.CALIBRATE;
       //Cli.xputs(G.stateStr);
       G.state = STATE_CALIBRATE;
     case STATE_CALIBRATE:
