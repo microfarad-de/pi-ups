@@ -461,7 +461,6 @@ void nvmRead (void) {
 
   // Calculate and check CRC checksum
   crc = crcCalc ((uint8_t*)&Nvm, sizeof (Nvm) - sizeof (Nvm.crc) );
-  Cli.xputs ("");
   Cli.xprintf (Str.CRC, crc);
   
   if (crc != Nvm.crc) {
