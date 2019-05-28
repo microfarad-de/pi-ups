@@ -69,7 +69,7 @@
 #define V_BATT_THR_LOW      3200000   // 3.2. V - V_batt threshold in µV for initiating a system shutdown
 #define V_BATT_THR_ERROR    1000000   // 1.0 V - V_batt threshold in µV for signalling a battery error
 #define V_UPS_THR_ERROR     4900000   // 4.9 V - V_ups threshold in µV for signalling a DC-DC converter error
-#define INITIAL_DELAY          5000   // Initial power on delay in ms
+#define INITIAL_DELAY          1000   // Initial power on delay in ms
 #define EXTERNAL_DELAY         1000   // Delay in ms prior to switching back to external power
 #define SHUTDOWN_DELAY        60000   // Delay in ms prior to turning off power upon system shutdown
 #define RESTART_DELAY          5000   // Delay in ms prior to restarting the system following a shutdown
