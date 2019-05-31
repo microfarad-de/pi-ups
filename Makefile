@@ -40,4 +40,5 @@
 
 BOARD_TAG = pro
 BOARD_SUB = 16MHzatmega328
+MONITOR_BAUDRATE = 19200
 include ${ARDMK_DIR}/Arduino.mk
