@@ -150,12 +150,12 @@ struct {
  * Strings to be reused for saving memory
  */
 const struct {
-  char *R_shunt    = (char *)"R_shunt    = %u mΩ\r\n";
-  char *V_diode    = (char *)"V_diode    = %u mV\r\n";
-  char *V_in_cal   = (char *)"V_in_cal   = %lu\r\n";
-  char *V_ups_cal  = (char *)"V_ups_cal  = %lu\r\n";
-  char *V_batt_cal = (char *)"V_batt_cal = %lu\r\n";
-  char *CRC        = (char *)"CRC        = %lx\r\n";
+  char *R_shunt    = (char *)"R_shunt    = %u mΩ\n";
+  char *V_diode    = (char *)"V_diode    = %u mV\n";
+  char *V_in_cal   = (char *)"V_in_cal   = %lu\n";
+  char *V_ups_cal  = (char *)"V_ups_cal  = %lu\n";
+  char *V_batt_cal = (char *)"V_batt_cal = %lu\n";
+  char *CRC        = (char *)"CRC        = %lx\n";
   char *EXTERN     = (char *)"EXTERNAL";
   char *BATTERY    = (char *)"BATTERY %u";
   char *SHUTDOWN   = (char *)"SHUTDOWN %u";
@@ -219,7 +219,7 @@ void setup (void) {
   Cli.xputs ("");
   Cli.xputs ("+ + +  P I  U P S  + + +");
   Cli.xputs ("");
-  Cli.xprintf ("V %d.%d.%d\r\n", VERSION_MAJOR, VERSION_MINOR, VERSION_MAINT);
+  Cli.xprintf ("V %d.%d.%d\n", VERSION_MAJOR, VERSION_MINOR, VERSION_MAINT);
   Cli.xputs ("");
   Cli.newCmd ("stat", "Brief status", cmdStat);
   Cli.newCmd ("s", "", cmdStat);
@@ -603,15 +603,15 @@ int cmdStatus (int argc, char **argv) {
     Cli.xprintf (Str.SHUTDOWN, digitalRead (OUT_MOSFET_PIN));
   }
   Cli.xputs ("");
-  Cli.xprintf ("battery    = %u\r\n", G.battState);
-  Cli.xprintf ("V_in       = %lu mV\r\n", G.vIn / 1000);
-  Cli.xprintf ("V_ups      = %lu mV\r\n", G.vUps / 1000);
-  Cli.xprintf ("V_batt     = %lu mV\r\n", G.vBatt / 1000);
-  Cli.xprintf ("I_batt     = %lu mA\r\n", G.iBatt / 1000);
-  Cli.xprintf ("PWM        = %u\r\n", LiCharger.pwm);
-  Cli.xprintf ("V_in_raw   = %u\r\n", G.vInRaw);
-  Cli.xprintf ("V_ups_raw  = %u\r\n", G.vUpsRaw);
-  Cli.xprintf ("V_batt_raw = %u\r\n", G.vBattRaw);
+  Cli.xprintf ("battery    = %u\n", G.battState);
+  Cli.xprintf ("V_in       = %lu mV\n", G.vIn / 1000);
+  Cli.xprintf ("V_ups      = %lu mV\n", G.vUps / 1000);
+  Cli.xprintf ("V_batt     = %lu mV\n", G.vBatt / 1000);
+  Cli.xprintf ("I_batt     = %lu mA\n", G.iBatt / 1000);
+  Cli.xprintf ("PWM        = %u\n", LiCharger.pwm);
+  Cli.xprintf ("V_in_raw   = %u\n", G.vInRaw);
+  Cli.xprintf ("V_ups_raw  = %u\n", G.vUpsRaw);
+  Cli.xprintf ("V_batt_raw = %u\n", G.vBattRaw);
 
   return 0;
 }
