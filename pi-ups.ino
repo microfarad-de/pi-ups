@@ -164,6 +164,32 @@ const struct {
 } Str;
 
 
+
+/*
+ * Function prototypes
+ */
+void shutdown (void);
+void liChargerCB (uint8_t pwm);
+void adcRead (void);
+void nvmValidate (void);
+void nvmRead (void);
+void nvmWrite (void);
+void checkBattState (void);
+int cmdStat (int argc, char **argv);
+int cmdHalt (int argc, char **argv);
+int cmdStatus (int argc, char **argv);
+int cmdEEPROM (int argc, char **argv);
+int cmdRshunt (int argc, char **argv);
+int cmdVdiode (int argc, char **argv);
+int cmdCal (int argc, char **argv);
+void calVin (uint32_t vRef);
+void calVups (uint32_t vRef);
+void calVbatt (uint32_t vRef);
+
+
+
+
+
 /*
  * Arduino initalization routine
  */
