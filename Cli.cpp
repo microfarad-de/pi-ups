@@ -59,7 +59,7 @@ int CliClass::newCmd (const char *name, const char *description, int(*function)(
   if (!initialized) return EXIT_FAILURE;
   
   if (this->numCmds >= CLI_NUM_CMD) {
-    xprintf("OVF!\n");
+    xprintf("OVF!\r\n");
     return EXIT_FAILURE;
   }
 
@@ -147,7 +147,7 @@ int CliClass::getCmd (void)
           return rv;
         }
       }        
-      xprintf("Unknown '%s'\n", argv[0]);
+      xprintf("Unknown '%s'\r\n", argv[0]);
       break;
 
     default:       
@@ -187,7 +187,7 @@ void CliClass::showHelp (void)
   sortCmds(numCmds, cmd);
   
   Cli.xputs ("");
-  xprintf("Commands:\n");
+  xprintf("Commands:\r\n");
 
   // Display commands
   for (i = 0; (i < numCmds) && (i < CLI_NUM_CMD); i++) {
@@ -281,10 +281,12 @@ void CliClass::textPrintBlock (const char *text, int lineSize, int offset)
 
     // add new-line and padding
     if (*c != 0) {
+      xputchar('\r');
       xputchar('\n');
       for (i = 0; i < offset; i++) xputchar(' ');
     }
   }
+  xputchar('\r');
   xputchar('\n');
 }
 
@@ -312,7 +314,7 @@ void CliClass::xprintf (const char *fmt, ... ){
 void CliClass::xputs (const char *c){
   if (!initialized) return;
   Serial.print(c);
-  Serial.print("\n");
+  Serial.print("\r\n");
 }
 
 
