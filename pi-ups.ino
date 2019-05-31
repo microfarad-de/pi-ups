@@ -201,7 +201,7 @@ void setup (void) {
   // Initialize the Timer 2 PWM frequency for pins 3 and 11 
   // see https://etechnophiles.com/change-frequency-pwm-pins-arduino-uno/
   // see ATmega328P datasheet Section 2.11.2, Table 22-10
-  TCCR2B = TCCR2B & B11111000 | B00000001; // for PWM frequency of 31372.55 Hz
+  TCCR2B = (TCCR2B & B11111000) | B00000001; // for PWM frequency of 31372.55 Hz
 
   // Initialize pins
   pinMode (CHG_MOSFET_PIN, OUTPUT);
