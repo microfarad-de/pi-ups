@@ -388,6 +388,7 @@ void shutdown (void) {
 
   if (G.shutdown) {
     Led.blink (-1, 50, 50);
+    G.testMode = false;
 
     if (digitalRead (OUT_MOSFET_PIN) == LOW) {
       // Power down if HALT_DELAY has elapsed
@@ -611,7 +612,7 @@ int cmdHalt (int argc, char **argv) {
  *   stop  : stop the UPS test mode
  */
 int cmdTest (int argc, char **argv) {
-  if (strcmp(argv[1], Str.start) == 0) {
+  if (strcmp(argv[1], Str.start) == 0 && !G.shutdown) {
     Cli.xputs("Test mode start");
     G.testMode = true;
   }
