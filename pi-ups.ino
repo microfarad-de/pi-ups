@@ -1,15 +1,15 @@
-/* 
+/*
  * Uninterrruptible Power Supply (UPS) for a Raspberry Pi
- * 
+ *
  * This source file is part of the Raspberry Pi UPS Arduino firmware
  * found under http://www.github.com/microfarad-de/pi-ups
- * 
+ *
  * Please visit:
  *   http://www.microfarad.de
  *   http://www.github.com/microfarad-de
- * 
+ *
  * Copyright (C) 2019 Karim Hraibi (khraibi at gmail.com)
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -21,8 +21,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>. 
- * 
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ *
  * Version: 1.0.0
  * Date:    May 2019
  */
@@ -123,8 +123,8 @@ struct {
   uint64_t iBatt;        // I_batt - Battery charging current in µA
   uint16_t vInRaw;       // Raw ADC value of V_in
   uint16_t vUpsRaw;      // Raw ADC value of V_ups
-  uint16_t vBattRaw;     // Raw ADC value of V_batt 
-  BattState_t battState; // Battery st      
+  uint16_t vBattRaw;     // Raw ADC value of V_batt
+  BattState_t battState; // Battery state
   uint8_t error = 0;     // Error code
   bool shutdown = false; // System shutdown command
   char *stateStr = 0;    // System status as human readable string
@@ -157,7 +157,7 @@ const struct {
   char *V_batt_cal = (char *)"V_batt_cal = %lu\n";
   char *CRC        = (char *)"CRC        = %lx\n";
   char *EXTERN     = (char *)"EXTERNAL";
-  char *BATTERY    = (char *)"BATTERY %u";
+  char *BATTERY    = (char *)"BATTERY %u %u";
   char *SHUTDOWN   = (char *)"SHUTDOWN %u";
   char *CALIBRATE  = (char *)"CALIBRATE";
   char *ERR        = (char *)"ERROR %u";
@@ -175,6 +175,7 @@ void nvmValidate (void);
 void nvmRead (void);
 void nvmWrite (void);
 void checkBattState (void);
+void printState (void);
 int cmdStat (int argc, char **argv);
 int cmdHalt (int argc, char **argv);
 int cmdStatus (int argc, char **argv);
@@ -198,7 +199,7 @@ void setup (void) {
   MCUSR = 0;      // clear MCU status register
   wdt_disable (); // and disable watchdog
 
-  // Initialize the Timer 2 PWM frequency for pins 3 and 11 
+  // Initialize the Timer 2 PWM frequency for pins 3 and 11
   // see https://etechnophiles.com/change-frequency-pwm-pins-arduino-uno/
   // see ATmega328P datasheet Section 2.11.2, Table 22-10
   TCCR2B = (TCCR2B & B11111000) | B00000001; // for PWM frequency of 31372.55 Hz
@@ -212,8 +213,8 @@ void setup (void) {
   digitalWrite (IN_MOSFET_PIN, LOW);     // Active low: LOW means the MOSFET is on
   digitalWrite (OUT_MOSFET_PIN, LOW);    // Active low: LOW means the MOSFET is on
   digitalWrite (BATT_MOSFET_PIN, HIGH);  // Active low: HIGH means the MOSFET is off
-  
-  
+
+
   // Initialize the command-line interface
   Cli.init ( SERIAL_BAUD );
   Cli.xputs ("");
@@ -221,6 +222,7 @@ void setup (void) {
   Cli.xputs ("");
   Cli.xprintf ("V %d.%d.%d\n", VERSION_MAJOR, VERSION_MINOR, VERSION_MAINT);
   Cli.xputs ("");
+  Cli.xputs ("Enter 'h' for help\n");
   Cli.newCmd ("stat", "Brief status", cmdStat);
   Cli.newCmd ("s", "", cmdStat);
   Cli.newCmd ("status", "Detaild status", cmdStatus);
@@ -276,7 +278,7 @@ void loop (void) {
 
   // Handle shutdown command
   shutdown ();
- 
+
   // Main state machine
   switch (G.state) {
 
@@ -286,14 +288,14 @@ void loop (void) {
       delayTs = ts;
       G.state = STATE_INIT;
     case STATE_INIT:
-    
+
       // Wait for the ADC to stabilize before starting-up
       if (ts - delayTs > (uint32_t)INITIAL_DELAY) {
         digitalWrite (OUT_MOSFET_PIN, LOW);   // Activate output power
         G.state = STATE_EXTERNAL_E;
       }
       break;
-      
+
 
     // Running on external power
     case STATE_EXTERNAL_E:
@@ -304,7 +306,7 @@ void loop (void) {
       //Cli.xputs(G.stateStr);
       G.state = STATE_EXTERNAL;
     case STATE_EXTERNAL:
-    
+
       if (!G.shutdown) {
         Led.blink (-1, 100, 1900);
       }
@@ -322,7 +324,7 @@ void loop (void) {
       digitalWrite (IN_MOSFET_PIN, HIGH);  // Deactivate external power
       delayTs = ts;
       G.stateStr = Str.BATTERY;
-      //Cli.xprintf (G.stateStr, G.battState);
+      //Cli.xprintf (G.stateStr, G.battState, G.vBatt);
       //Cli.xputs ("");
       G.state = STATE_BATTERY;
     case STATE_BATTERY:
@@ -380,7 +382,7 @@ void loop (void) {
 
     default:
       break;
-    
+
   }
 
 }
@@ -396,9 +398,9 @@ void shutdown (void) {
 
   if (G.shutdown) {
     Led.blink (-1, 50, 50);
-    
-    if  (digitalRead (OUT_MOSFET_PIN) == LOW) {  
-    
+
+    if  (digitalRead (OUT_MOSFET_PIN) == LOW) {
+
       // Power down if HALT_DELAY has elapsed
       if (ts - shutdownTs > SHUTDOWN_DELAY) {
         digitalWrite (OUT_MOSFET_PIN, HIGH);  // Deactivate output power
@@ -406,17 +408,17 @@ void shutdown (void) {
       }
     }
     else {
-      
+
       // Power up if RESTART_DELAY has elapsed and not on battery power
       if (ts - shutdownTs > RESTART_DELAY && G.state != STATE_BATTERY) {
         digitalWrite (OUT_MOSFET_PIN, LOW);  // Activate output power
         G.shutdown = false;
-      } 
-    }    
+      }
+    }
   }
   else {
     shutdownTs = ts;
-  }      
+  }
 }
 
 
@@ -442,7 +444,7 @@ void adcRead (void) {
   // Read the ADC channels
   result = ADConv.readAll ();
 
-  
+
   if (result) {
     // Get the ADC results
     G.vInRaw   = (uint16_t)ADConv.result[V_IN_APIN];
@@ -481,14 +483,14 @@ void nvmValidate (void) {
  */
 void nvmRead (void) {
   uint32_t crc;
-  
-  eepromRead (0x0, (uint8_t*)&Nvm, sizeof (Nvm)); 
+
+  eepromRead (0x0, (uint8_t*)&Nvm, sizeof (Nvm));
   nvmValidate ();
 
   // Calculate and check CRC checksum
   crc = crcCalc ((uint8_t*)&Nvm, sizeof (Nvm) - sizeof (Nvm.crc) );
   Cli.xprintf (Str.CRC, crc);
-  
+
   if (crc != Nvm.crc) {
     Cli.xputs ("CRC error");
     G.error |= ERROR_CRC;
@@ -522,7 +524,7 @@ void checkBattState (void) {
   else                                         G.battState = BATT_STATE_100;
 
   if (G.state != STATE_INIT_E && G.state != STATE_INIT) {
-    
+
     // Check for battery error
     if  (G.vBatt < V_BATT_THR_ERROR) {
       if ((G.error & (uint8_t)ERROR_BATTERY) == 0) {
@@ -533,7 +535,7 @@ void checkBattState (void) {
     else {
       G.error &= ~ERROR_BATTERY;
     }
-  
+
     // Check for DC-DC converter error
     if (G.vUps < V_UPS_THR_ERROR) {
       if ((G.error & (uint8_t)ERROR_DCDC) == 0) {
@@ -550,14 +552,11 @@ void checkBattState (void) {
 
 
 /*
- * CLI command reporting the brief system status
+ * Print system state string
  */
-int cmdStat (int argc, char **argv) {
-  if (G.shutdown)  {
-    Cli.xprintf (Str.SHUTDOWN, digitalRead (OUT_MOSFET_PIN));
-  }
-  else if (G.state == STATE_BATTERY) {
-    Cli.xprintf (G.stateStr, G.battState);   
+void printState (void) {
+  if (G.state == STATE_BATTERY) {
+    Cli.xprintf (G.stateStr, G.battState, G.vBatt/1000);
   }
   else if (G.state == STATE_ERROR) {
     Cli.xprintf (G.stateStr, G.error);
@@ -565,7 +564,18 @@ int cmdStat (int argc, char **argv) {
   else {
     Cli.xprintf (G.stateStr);
   }
+  if (G.shutdown)  {
+    Cli.xprintf (Str.SHUTDOWN, digitalRead (OUT_MOSFET_PIN));
+  }
   Cli.xputs("");
+}
+
+
+/*
+ * CLI command reporting the brief system status
+ */
+int cmdStat (int argc, char **argv) {
+  printState ();
   return 0;
 }
 
@@ -589,20 +599,7 @@ int cmdHalt (int argc, char **argv) {
 int cmdStatus (int argc, char **argv) {
   Cli.xputs ("");
   Cli.xprintf ("state      = ");
-  if (G.state == STATE_BATTERY) {
-    Cli.xprintf (G.stateStr, G.battState);   
-  }
-  else if (G.state == STATE_ERROR) {
-    Cli.xprintf (G.stateStr, G.error);
-  }
-  else {
-    Cli.xprintf (G.stateStr);
-  }
-  if (G.shutdown)  {
-    Cli.xprintf (" ");
-    Cli.xprintf (Str.SHUTDOWN, digitalRead (OUT_MOSFET_PIN));
-  }
-  Cli.xputs ("");
+  printState ();
   Cli.xprintf ("battery    = %u\n", G.battState);
   Cli.xprintf ("V_in       = %lu mV\n", G.vIn / 1000);
   Cli.xprintf ("V_ups      = %lu mV\n", G.vUps / 1000);
