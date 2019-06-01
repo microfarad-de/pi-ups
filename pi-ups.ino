@@ -24,7 +24,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  * Version: 1.0.0
- * Date:    May 2019
+ * Date:    June 2019
  */
 #define VERSION_MAJOR 1  // major version
 #define VERSION_MINOR 0  // minor version
@@ -83,11 +83,23 @@
 LedClass Led;
 LiChargerClass LiCharger;
 
+
 /*
  * State machine states
  */
-enum State_t { STATE_INIT_E, STATE_INIT, STATE_EXTERNAL_E, STATE_EXTERNAL, STATE_BATTERY_E, STATE_BATTERY, 
-                 STATE_CALIBRATE_E, STATE_CALIBRATE, STATE_ERROR_E, STATE_ERROR };
+enum State_t {
+  STATE_INIT_E,
+  STATE_INIT,
+  STATE_EXTERNAL_E,
+  STATE_EXTERNAL,
+  STATE_BATTERY_E,
+  STATE_BATTERY,
+  STATE_CALIBRATE_E,
+  STATE_CALIBRATE,
+  STATE_ERROR_E,
+  STATE_ERROR
+};
+
 
 /*
  * A list of error codes
@@ -509,8 +521,8 @@ void nvmWrite (void) {
  */
 void checkBattState (void) {
   // Check the battery voltage
-  if      (G.vBatt < (uint32_t)V_BATT_THR_LOW) G.battState = BATT_STATE_0, G.testMode = false;
-  else if (G.vBatt < (uint32_t)V_BATT_THR_25)  G.battState = BATT_STATE_25, G.testMode = false;
+  if      (G.vBatt < (uint32_t)V_BATT_THR_LOW) G.battState = BATT_STATE_0;
+  else if (G.vBatt < (uint32_t)V_BATT_THR_25)  G.battState = BATT_STATE_25;
   else if (G.vBatt < (uint32_t)V_BATT_THR_50)  G.battState = BATT_STATE_50;
   else if (G.vBatt < (uint32_t)V_BATT_THR_75)  G.battState = BATT_STATE_75;
   else                                         G.battState = BATT_STATE_100;
