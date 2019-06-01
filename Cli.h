@@ -28,7 +28,7 @@
 #define __Cli_H_
 
 
-#define CLI_NUM_CMD         10   // Number of cli commands
+#define CLI_NUM_CMD         12   // Number of cli commands
 #define CLI_NUM_ARG          3   // Number of cli arguments
 #define CLI_ARG_LEN          8   // Maximum argument length
 #define CLI_PRINTF_BUF_SIZE 40   // Size of the printf buffer

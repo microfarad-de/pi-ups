@@ -64,7 +64,7 @@
 #define V_IN_THR_BATTERY    4900000   // 4.85 V - V_in thershold in µV below which the UPS will switch to battery power
 #define V_IN_THR_EXTERNAL   5000000   // 5.0 V - V_in threshold in µV above which the UPS will switch back to external power
 #define V_BATT_THR_75       3800000   // 3.8 V - V_batt threshold in µV that roughly corresponds to 75% battery charge
-#define V_BATT_THR_50       3600000   // 3.6 V - V_batt threshold in µV that roughly corresponds to 50% battery charge        
+#define V_BATT_THR_50       3600000   // 3.6 V - V_batt threshold in µV that roughly corresponds to 50% battery charge
 #define V_BATT_THR_25       3400000   // 3.4 V - V_batt threshold in µV that roughly corresponds to 25% battery charge
 #define V_BATT_THR_LOW      3200000   // 3.2. V - V_batt threshold in µV for initiating a system shutdown
 #define V_BATT_THR_ERROR    1000000   // 1.0 V - V_batt threshold in µV for signalling a battery error
@@ -77,7 +77,7 @@
 
 
 
-/* 
+/*
  * Objects
  */
 LedClass Led;
@@ -126,8 +126,8 @@ struct {
   uint16_t vBattRaw;     // Raw ADC value of V_batt
   BattState_t battState; // Battery state
   uint8_t error = 0;     // Error code
-  bool shutdown = false; // System shutdown command
-  char *stateStr = 0;    // System status as human readable string
+  bool shutdown = false; // System shutdown command flag
+  bool testMode = false; // UPS test mode activation flag
 } G;
 
 
@@ -150,17 +150,14 @@ struct {
  * Strings to be reused for saving memory
  */
 const struct {
-  char *R_shunt    = (char *)"R_shunt    = %u mΩ\n";
-  char *V_diode    = (char *)"V_diode    = %u mV\n";
+  char *R_shunt    = (char *)"R_shunt    = %umΩ\n";
+  char *V_diode    = (char *)"V_diode    = %umV\n";
   char *V_in_cal   = (char *)"V_in_cal   = %lu\n";
   char *V_ups_cal  = (char *)"V_ups_cal  = %lu\n";
   char *V_batt_cal = (char *)"V_batt_cal = %lu\n";
   char *CRC        = (char *)"CRC        = %lx\n";
-  char *EXTERN     = (char *)"EXTERNAL";
-  char *BATTERY    = (char *)"BATTERY %u %u";
-  char *SHUTDOWN   = (char *)"SHUTDOWN %u";
-  char *CALIBRATE  = (char *)"CALIBRATE";
-  char *ERR        = (char *)"ERROR %u";
+  char *start      = (char *)"start";
+  char *stop       = (char *)"stop";
 } Str;
 
 
@@ -178,6 +175,7 @@ void checkBattState (void);
 void printState (void);
 int cmdStat (int argc, char **argv);
 int cmdHalt (int argc, char **argv);
+int cmdTest (int argc, char **argv);
 int cmdStatus (int argc, char **argv);
 int cmdEEPROM (int argc, char **argv);
 int cmdRshunt (int argc, char **argv);
@@ -227,11 +225,13 @@ void setup (void) {
   Cli.newCmd ("s", "", cmdStat);
   Cli.newCmd ("status", "Detaild status", cmdStatus);
   Cli.newCmd (".", "", cmdStatus);
-  Cli.newCmd ("e", "EEPROM status", cmdEEPROM);
-  Cli.newCmd ("halt", "Initiate shutdown", cmdHalt);
-  Cli.newCmd ("cal", "Calibrate (arg: [vin|vups|vbatt])", cmdCal);
+  Cli.newCmd ("rom", "EEPROM status", cmdEEPROM);
+  Cli.newCmd ("r", "", cmdEEPROM);
+  Cli.newCmd ("halt", "Initiate shutdown (arg: [abort])", cmdHalt);
+  Cli.newCmd ("cal", "Calibrate (arg: <start|stop|vin|vups|vbatt>)", cmdCal);
   Cli.newCmd ("rshunt", "Set R_shunt in mΩ", cmdRshunt);
   Cli.newCmd ("vdiode", "Set V_diode in mV", cmdVdiode);
+  Cli.newCmd ("test", "Test mode (arg: <start|stop>)", cmdTest);
   //Cli.showHelp ();
 
   // Initialize the ADC
@@ -302,8 +302,6 @@ void loop (void) {
       LiCharger.start ();                   // Start battery charging
       digitalWrite (IN_MOSFET_PIN, LOW);    // Activate external power
       digitalWrite (BATT_MOSFET_PIN, HIGH); // Deactivate battery power
-      G.stateStr = Str.EXTERN;
-      //Cli.xputs(G.stateStr);
       G.state = STATE_EXTERNAL;
     case STATE_EXTERNAL:
 
@@ -323,9 +321,6 @@ void loop (void) {
       digitalWrite (BATT_MOSFET_PIN, LOW); // Activate battery power
       digitalWrite (IN_MOSFET_PIN, HIGH);  // Deactivate external power
       delayTs = ts;
-      G.stateStr = Str.BATTERY;
-      //Cli.xprintf (G.stateStr, G.battState, G.vBatt);
-      //Cli.xputs ("");
       G.state = STATE_BATTERY;
     case STATE_BATTERY:
 
@@ -352,8 +347,6 @@ void loop (void) {
       digitalWrite (IN_MOSFET_PIN, LOW);    // Activate external power
       digitalWrite (BATT_MOSFET_PIN, HIGH); // Deactivate battery power
       G.shutdown = false;
-      G.stateStr = Str.CALIBRATE;
-      //Cli.xputs(G.stateStr);
       G.state = STATE_CALIBRATE;
     case STATE_CALIBRATE:
       // Do nothing and wait for a CLI command
@@ -365,9 +358,6 @@ void loop (void) {
       LiCharger.stop ();                    // Stop battery charging
       digitalWrite (IN_MOSFET_PIN, LOW);    // Activate external power
       digitalWrite (BATT_MOSFET_PIN, HIGH); // Deactivate battery power
-      G.stateStr = Str.ERR;
-      //Cli.xprintf(G.stateStr, G.error);
-      //Cli.xputs ("");
       G.state = STATE_ERROR;
     case STATE_ERROR:
       if (!G.shutdown) {
@@ -399,8 +389,7 @@ void shutdown (void) {
   if (G.shutdown) {
     Led.blink (-1, 50, 50);
 
-    if  (digitalRead (OUT_MOSFET_PIN) == LOW) {
-
+    if (digitalRead (OUT_MOSFET_PIN) == LOW) {
       // Power down if HALT_DELAY has elapsed
       if (ts - shutdownTs > SHUTDOWN_DELAY) {
         digitalWrite (OUT_MOSFET_PIN, HIGH);  // Deactivate output power
@@ -408,7 +397,6 @@ void shutdown (void) {
       }
     }
     else {
-
       // Power up if RESTART_DELAY has elapsed and not on battery power
       if (ts - shutdownTs > RESTART_DELAY && G.state != STATE_BATTERY) {
         digitalWrite (OUT_MOSFET_PIN, LOW);  // Activate output power
@@ -417,6 +405,9 @@ void shutdown (void) {
     }
   }
   else {
+    if (digitalRead (OUT_MOSFET_PIN) == HIGH) {
+      digitalWrite (OUT_MOSFET_PIN, LOW); // Activate output power
+    }
     shutdownTs = ts;
   }
 }
@@ -458,6 +449,8 @@ void adcRead (void) {
     G.iBatt = (( (uint64_t)G.vIn - (uint64_t)G.vBatt - (uint64_t)Nvm.vDiode*1000) * LiCharger.pwm * 1000) / 255 / Nvm.rShunt ;
     if (G.iBatt < 0) G.iBatt = 0;
 
+    // Simulate low input voltage during test mode
+    if (G.testMode) G.vIn = 0;
   }
 }
 
@@ -506,7 +499,7 @@ void nvmRead (void) {
  * Write and validate EEPROM data
  */
 void nvmWrite (void) {
-  nvmValidate (); 
+  nvmValidate ();
   Nvm.crc = crcCalc ((uint8_t*)&Nvm, sizeof (Nvm) - sizeof (Nvm.crc) );
   eepromWrite (0x0, (uint8_t*)&Nvm, sizeof (Nvm));
 }
@@ -517,8 +510,8 @@ void nvmWrite (void) {
  */
 void checkBattState (void) {
   // Check the battery voltage
-  if      (G.vBatt < (uint32_t)V_BATT_THR_LOW) G.battState = BATT_STATE_0;
-  else if (G.vBatt < (uint32_t)V_BATT_THR_25)  G.battState = BATT_STATE_25;
+  if      (G.vBatt < (uint32_t)V_BATT_THR_LOW) G.battState = BATT_STATE_0, G.testMode = false;
+  else if (G.vBatt < (uint32_t)V_BATT_THR_25)  G.battState = BATT_STATE_25, G.testMode = false;
   else if (G.vBatt < (uint32_t)V_BATT_THR_50)  G.battState = BATT_STATE_50;
   else if (G.vBatt < (uint32_t)V_BATT_THR_75)  G.battState = BATT_STATE_75;
   else                                         G.battState = BATT_STATE_100;
@@ -555,19 +548,31 @@ void checkBattState (void) {
  * Print system state string
  */
 void printState (void) {
-  if (G.state == STATE_BATTERY) {
-    Cli.xprintf (G.stateStr, G.battState, G.vBatt/1000);
+  if (G.state == STATE_INIT) {
+    Cli.xprintf("INIT");
+  }
+  if (G.state == STATE_EXTERNAL) {
+    Cli.xprintf("EXTERNAL");
+  }
+  else if (G.state == STATE_BATTERY) {
+    Cli.xprintf("BATTERY");
+  }
+  else if (G.state == STATE_CALIBRATE) {
+    Cli.xprintf("CALIBRATE");
   }
   else if (G.state == STATE_ERROR) {
-    Cli.xprintf (G.stateStr, G.error);
+    Cli.xprintf ("ERROR %u", G.error);
   }
-  else {
-    Cli.xprintf (G.stateStr);
+  if (G.shutdown) {
+    Cli.xprintf (" SHUTDOWN %u", digitalRead (OUT_MOSFET_PIN));
   }
-  if (G.shutdown)  {
-    Cli.xprintf (Str.SHUTDOWN, digitalRead (OUT_MOSFET_PIN));
+  if (G.testMode) {
+    Cli.xprintf (" TEST");
   }
-  Cli.xputs("");
+  if (LiCharger.pwm > 0) {
+    Cli.xprintf (" CHARGING");
+  }
+  Cli.xprintf (" %u%% %umV\n", G.battState, G.vBatt/1000);
 }
 
 
@@ -582,16 +587,40 @@ int cmdStat (int argc, char **argv) {
 
 /*
  * CLI command for initiating a system shutdown
+ * argv[1]:
+ *   abort : abort the shutdown procedure
  */
 int cmdHalt (int argc, char **argv) {
-  if (G.state != STATE_CALIBRATE_E && G.state != STATE_CALIBRATE) {
-    Cli.xprintf (Str.SHUTDOWN, digitalRead (OUT_MOSFET_PIN));
-    Cli.xputs ("");
-    G.shutdown = true; 
+  if (strcmp(argv[1], "abort") == 0){
+    Cli.xputs ("Shutdown abort");
+    G.shutdown = false;
+  }
+  else {
+   if (G.state != STATE_CALIBRATE_E && G.state != STATE_CALIBRATE) {
+      Cli.xprintf ("SHUTDOWN %u\n", digitalRead (OUT_MOSFET_PIN));
+      G.shutdown = true;
+    }
   }
   return 0;
 }
 
+/*
+ * CLI command for initiating the UPS test mode
+ * argv[1]:
+ *   start : start the UPS test mode
+ *   stop  : stop the UPS test mode
+ */
+int cmdTest (int argc, char **argv) {
+  if (strcmp(argv[1], Str.start) == 0) {
+    Cli.xputs("Test mode start");
+    G.testMode = true;
+  }
+  else if (strcmp(argv[1], Str.stop) == 0) {
+    Cli.xputs("Test mode stop");
+    G.testMode = false;
+  }
+  return 0;
+}
 
 /*
  * CLI command for showing the detailed system status
@@ -600,11 +629,11 @@ int cmdStatus (int argc, char **argv) {
   Cli.xputs ("");
   Cli.xprintf ("state      = ");
   printState ();
-  Cli.xprintf ("battery    = %u\n", G.battState);
-  Cli.xprintf ("V_in       = %lu mV\n", G.vIn / 1000);
-  Cli.xprintf ("V_ups      = %lu mV\n", G.vUps / 1000);
-  Cli.xprintf ("V_batt     = %lu mV\n", G.vBatt / 1000);
-  Cli.xprintf ("I_batt     = %lu mA\n", G.iBatt / 1000);
+  Cli.xprintf ("battery    = %u%%\n", G.battState);
+  Cli.xprintf ("V_in       = %lumV\n", G.vIn / 1000);
+  Cli.xprintf ("V_ups      = %lumV\n", G.vUps / 1000);
+  Cli.xprintf ("V_batt     = %lumV\n", G.vBatt / 1000);
+  Cli.xprintf ("I_batt     = %lumA\n", G.iBatt / 1000);
   Cli.xprintf ("PWM        = %u\n", LiCharger.pwm);
   Cli.xprintf ("V_in_raw   = %u\n", G.vInRaw);
   Cli.xprintf ("V_ups_raw  = %u\n", G.vUpsRaw);
@@ -658,24 +687,26 @@ int cmdVdiode (int argc, char **argv) {
 /*
  * CLI command for calibrating V_in, V_ups and V_batt
  * argv[1]:
+ *   start : start calibration mode
+ *   stop  : stop calibration mode
  *   vin   : calibrate V_in
  *   vups  : calibrate V_ups
  *   vbatt : calibrate V_batt
- * 
- * argv[2]: 
+ *
+ * argv[2]:
  *   Measured reference voltage in mV
  */
 int cmdCal (int argc, char **argv) {
   if (G.state == STATE_CALIBRATE) {
-    uint32_t vRef = (uint32_t)atoi(argv[2]) * 1000; 
+    uint32_t vRef = (uint32_t)atoi(argv[2]) * 1000;
     if      (strcmp(argv[1], "vin"  ) == 0) calVin (vRef);
     else if (strcmp(argv[1], "vups" ) == 0) calVups (vRef);
     else if (strcmp(argv[1], "vbatt") == 0) calVbatt (vRef);
-    else    G.state = STATE_EXTERNAL_E, Cli.xputs ("Cal. mode end");
+    else if (strcmp(argv[1], Str.stop) == 0) G.state = STATE_EXTERNAL_E, Cli.xputs ("Cal. mode stop");
   }
-  else {
+  else if (strcmp(argv[1], Str.start) == 0) {
     G.state = STATE_CALIBRATE_E;
-    Cli.xputs ("Cal. mode begin");        
+    Cli.xputs ("Cal. mode start");
   }
   return 0;
 }
