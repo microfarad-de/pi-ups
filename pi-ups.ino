@@ -555,7 +555,7 @@ void printState (void) {
     Cli.xprintf("EXTERNAL");
   }
   else if (G.state == STATE_BATTERY) {
-    Cli.xprintf("BATTERY");
+    Cli.xprintf("BATTERY %u%%", G.battState);
   }
   else if (G.state == STATE_CALIBRATE) {
     Cli.xprintf("CALIBRATE");
@@ -572,7 +572,7 @@ void printState (void) {
   if (LiCharger.pwm > 0) {
     Cli.xprintf (" CHARGING");
   }
-  Cli.xprintf (" %u%% %umV\n", G.battState, G.vBatt/1000);
+  Cli.xprintf (" %umV\n", G.vBatt/1000);
 }
 
 
