@@ -156,8 +156,6 @@ const struct {
   char *V_ups_cal  = (char *)"V_ups_cal  = %lu\n";
   char *V_batt_cal = (char *)"V_batt_cal = %lu\n";
   char *CRC        = (char *)"CRC        = %lx\n";
-  char *start      = (char *)"start";
-  char *stop       = (char *)"stop";
 } Str;
 
 
@@ -231,7 +229,7 @@ void setup (void) {
   Cli.newCmd ("cal", "Calibrate (arg: <start|stop|vin|vups|vbatt>)", cmdCal);
   Cli.newCmd ("rshunt", "Set R_shunt in mΩ", cmdRshunt);
   Cli.newCmd ("vdiode", "Set V_diode in mV", cmdVdiode);
-  Cli.newCmd ("test", "Test mode (arg: <start|stop>)", cmdTest);
+  Cli.newCmd ("test", "Test mode (arg: [abort])", cmdTest);
   //Cli.showHelp ();
 
   // Initialize the ADC
@@ -608,17 +606,16 @@ int cmdHalt (int argc, char **argv) {
 /*
  * CLI command for initiating the UPS test mode
  * argv[1]:
- *   start : start the UPS test mode
- *   stop  : stop the UPS test mode
+ *   abort : abort the UPS test mode
  */
 int cmdTest (int argc, char **argv) {
-  if (strcmp(argv[1], Str.start) == 0 && !G.shutdown) {
-    Cli.xputs("Test mode start");
-    G.testMode = true;
-  }
-  else if (strcmp(argv[1], Str.stop) == 0) {
-    Cli.xputs("Test mode stop");
+  if (strcmp(argv[1], "abort") == 0) {
+    Cli.xputs("Test mode abort");
     G.testMode = false;
+  }
+  else if (!G.shutdown) {
+    Cli.xputs("Test mode");
+    G.testMode = true;
   }
   return 0;
 }
@@ -703,9 +700,9 @@ int cmdCal (int argc, char **argv) {
     if      (strcmp(argv[1], "vin"  ) == 0) calVin (vRef);
     else if (strcmp(argv[1], "vups" ) == 0) calVups (vRef);
     else if (strcmp(argv[1], "vbatt") == 0) calVbatt (vRef);
-    else if (strcmp(argv[1], Str.stop) == 0) G.state = STATE_EXTERNAL_E, Cli.xputs ("Cal. mode stop");
+    else if (strcmp(argv[1], "stop") == 0) G.state = STATE_EXTERNAL_E, Cli.xputs ("Cal. mode stop");
   }
-  else if (strcmp(argv[1], Str.start) == 0) {
+  else if (strcmp(argv[1], "start") == 0) {
     G.state = STATE_CALIBRATE_E;
     Cli.xputs ("Cal. mode start");
   }
