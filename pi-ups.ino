@@ -232,9 +232,9 @@ void setup (void) {
   Cli.xputs ("");
   Cli.xputs ("Enter 'h' for help\n");
   Cli.newCmd ("stat", "Brief status", cmdStat);
-  Cli.newCmd ("s", "", cmdStat);
+  Cli.newCmd (".", "", cmdStat);
   Cli.newCmd ("status", "Detaild status", cmdStatus);
-  Cli.newCmd (".", "", cmdStatus);
+  Cli.newCmd ("s", "", cmdStatus);
   Cli.newCmd ("rom", "EEPROM status", cmdEEPROM);
   Cli.newCmd ("r", "", cmdEEPROM);
   Cli.newCmd ("halt", "Initiate shutdown (arg: [abort])", cmdHalt);
@@ -583,7 +583,15 @@ void printState (void) {
   if (LiCharger.pwm > 0) {
     Cli.xprintf (" CHARGING");
   }
-  Cli.xprintf (" %umV\n", G.vBatt/1000);
+  // Reduced voltage resolution to avoid frequent tracing upon voltage change
+  uint8_t v = G.vBatt/1000000;
+  uint8_t v10 = G.vBatt/100000 - v*10;
+  uint8_t v100 = G.vBatt/1000 - v*1000 - v10*100;
+  if      (v100 < 25) v100 = 0;
+  else if (v100 < 75) v100 = 5;
+  else                v100 = 0, v10++;
+  if      (v10 == 10) v10 = 0, v++;
+  Cli.xprintf (" %u.%u%uV\n", v, v10, v100);
 }
 
 
