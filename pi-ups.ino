@@ -584,14 +584,15 @@ void printState (void) {
     Cli.xprintf (" CHARGING");
   }
   // Reduced voltage resolution to avoid frequent tracing upon voltage change
-  uint8_t v = G.vBatt/1000000;
-  uint8_t v10 = G.vBatt/100000 - v*10;
-  uint8_t v100 = G.vBatt/1000 - v*1000 - v10*100;
-  if      (v100 < 25) v100 = 0;
-  else if (v100 < 75) v100 = 5;
-  else                v100 = 0, v10++;
-  if      (v10 == 10) v10 = 0, v++;
-  Cli.xprintf (" %u.%u%uV\n", v, v10, v100);
+  uint8_t v1 = G.vBatt/1000000;
+  uint8_t v10 = G.vBatt/100000 - v1*10;
+  uint8_t v100;
+  uint8_t v1000 = G.vBatt/1000 - v1*1000 - v10*100;
+  if      (v1000 < 25) v100 = 0;
+  else if (v1000 < 75) v100 = 5;
+  else    v100 = 0, v10++;
+  if      (v10 == 10) v10 = 0, v1++;
+  Cli.xprintf (" %u.%u%uV\n", v1, v10, v100);
 }
 
 
