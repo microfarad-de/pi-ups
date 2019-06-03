@@ -477,7 +477,7 @@ void nvmValidate (void) {
   if (Nvm.vInCal < 4000 || Nvm.vInCal > 40000) Nvm.vInCal = 40000;
   if (Nvm.vUpsCal < 4000 || Nvm.vUpsCal > 40000) Nvm.vUpsCal = 40000;
   if (Nvm.vBattCal < 4000 || Nvm.vBattCal > 40000) Nvm.vBattCal = 40000;
-  if (Nvm.rShunt < 100 || Nvm.rShunt > 1000) Nvm.rShunt = 1000;
+  if (Nvm.rShunt < 100 || Nvm.rShunt > 5000) Nvm.rShunt = 100;
   if (Nvm.vDiode < 100 || Nvm.vDiode > 1000) Nvm.vDiode = 100;
 }
 
@@ -683,6 +683,7 @@ int cmdEEPROM (int argc, char **argv) {
  * argv[1]: shunt resistance in mΩ
  */
 int cmdRshunt (int argc, char **argv) {
+  if (argc != 2) return 1;
   Nvm.rShunt = atoi (argv[1]);
   nvmWrite ();
   Cli.xprintf(Str.R_shunt, Nvm.rShunt);
@@ -695,6 +696,7 @@ int cmdRshunt (int argc, char **argv) {
  * argv[1]: shunt voltage in mV
  */
 int cmdVdiode (int argc, char **argv) {
+  if (argc != 2) return 1;
   Nvm.vDiode = atoi (argv[1]);
   nvmWrite ();
   Cli.xprintf(Str.V_diode, Nvm.vDiode);
