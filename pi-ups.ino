@@ -528,7 +528,7 @@ uint32_t vBattHysteresis (void) {
   int32_t delta = G.vBatt - lastVBatt;
   int8_t sign = sgn (delta);
   uint32_t v;
-  if ( abs (delta) > 10000 || sign == lastSign) {
+  if ( abs (delta) > 15000 || sign == lastSign) {
     v = G.vBatt;
     lastSign = sign;
     lastVBatt = G.vBatt;
