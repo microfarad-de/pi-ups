@@ -583,11 +583,24 @@ void printState (void) {
   if (LiCharger.pwm > 0) {
     Cli.xprintf (" CHARGING");
   }
-  // Reduced voltage resolution to avoid frequent tracing upon voltage change
-  uint8_t v1 = G.vBatt/1000000;
-  uint8_t v10 = G.vBatt/100000 - v1*10;
+  // Reduce voltage resolution and add hysteresis to avoid frequent tracing upon voltage change
+  static uint32_t lastVBatt = 0;
+  static int8_t lastSign = 1;
+  int32_t delta = G.vBatt - lastVBatt;
+  int8_t sign = sgn (delta);
+  uint32_t v;
+  if ( abs (delta) > 10000 || sign == lastSign) {
+    v = G.vBatt;
+    lastSign = sign;
+    lastVBatt = G.vBatt;
+  }
+  else {
+    v = lastVBatt;
+  }
+  uint8_t v1 = v/1000000;
+  uint8_t v10 = v/100000 - v1*10;
   uint8_t v100;
-  uint8_t v1000 = G.vBatt/1000 - v1*1000 - v10*100;
+  uint8_t v1000 = v/1000 - v1*1000 - v10*100;
   if      (v1000 < 25) v100 = 0;
   else if (v1000 < 75) v100 = 5;
   else    v100 = 0, v10++;

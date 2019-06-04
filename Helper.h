@@ -48,5 +48,10 @@ void eepromRead (uint16_t addr, uint8_t *buf, uint16_t bufSize);
 uint32_t crcCalc(uint8_t *buf, uint16_t bufSize);
 
 
+/*
+ * return the sign of a value
+ */
+int8_t sgn (int val);
+
 
 #endif /* __Helper_H_ */
