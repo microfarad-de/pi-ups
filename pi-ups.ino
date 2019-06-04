@@ -181,6 +181,7 @@ void adcRead (void);
 void nvmValidate (void);
 void nvmRead (void);
 void nvmWrite (void);
+uint32_t vBattHysteresis (void);
 void checkBattState (void);
 void printState (void);
 int cmdStat (int argc, char **argv);
@@ -516,15 +517,40 @@ void nvmWrite (void) {
 }
 
 
+
+/*
+ * Stabilize V_batt via hysteresis
+ * Return: stabilized V_batt
+ */
+uint32_t vBattHysteresis (void) {
+  static uint32_t lastVBatt = 0;
+  static int8_t lastSign = 1;
+  int32_t delta = G.vBatt - lastVBatt;
+  int8_t sign = sgn (delta);
+  uint32_t v;
+  if ( abs (delta) > 10000 || sign == lastSign) {
+    v = G.vBatt;
+    lastSign = sign;
+    lastVBatt = G.vBatt;
+  }
+  else {
+    v = lastVBatt;
+  }
+  return v;
+}
+
+
+
 /*
  * Check the battery state
  */
 void checkBattState (void) {
   // Check the battery voltage
-  if      (G.vBatt < (uint32_t)V_BATT_THR_LOW) G.battState = BATT_STATE_0;
-  else if (G.vBatt < (uint32_t)V_BATT_THR_25)  G.battState = BATT_STATE_25;
-  else if (G.vBatt < (uint32_t)V_BATT_THR_50)  G.battState = BATT_STATE_50;
-  else if (G.vBatt < (uint32_t)V_BATT_THR_75)  G.battState = BATT_STATE_75;
+  uint32_t v = vBattHysteresis ();
+  if      (v < (uint32_t)V_BATT_THR_LOW) G.battState = BATT_STATE_0;
+  else if (v < (uint32_t)V_BATT_THR_25)  G.battState = BATT_STATE_25;
+  else if (v < (uint32_t)V_BATT_THR_50)  G.battState = BATT_STATE_50;
+  else if (v < (uint32_t)V_BATT_THR_75)  G.battState = BATT_STATE_75;
   else                                         G.battState = BATT_STATE_100;
 
   if (G.state != STATE_INIT_E && G.state != STATE_INIT) {
@@ -584,19 +610,7 @@ void printState (void) {
     Cli.xprintf (" CHARGING");
   }
   // Reduce voltage resolution and add hysteresis to avoid frequent tracing upon voltage change
-  static uint32_t lastVBatt = 0;
-  static int8_t lastSign = 1;
-  int32_t delta = G.vBatt - lastVBatt;
-  int8_t sign = sgn (delta);
-  uint32_t v;
-  if ( abs (delta) > 10000 || sign == lastSign) {
-    v = G.vBatt;
-    lastSign = sign;
-    lastVBatt = G.vBatt;
-  }
-  else {
-    v = lastVBatt;
-  }
+  uint32_t v = vBattHysteresis ();
   uint8_t v1 = v/1000000;
   uint8_t v10 = v/100000 - v1*10;
   uint8_t v100;
