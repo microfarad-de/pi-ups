@@ -132,6 +132,7 @@ struct {
   uint32_t vIn;          // V_in - external power supply voltage in µV
   uint32_t vUps;         // V_ups - voltage at the output of the DC-DC converter in µV
   uint32_t vBatt;        // V_batt - Battery voltage in µV
+  uint32_t vBattH;       // V_batt_h - V_batt stabilized via hysteresis
   uint64_t iBatt;        // I_batt - Battery charging current in µA
   uint16_t vInRaw;       // Raw ADC value of V_in
   uint16_t vUpsRaw;      // Raw ADC value of V_ups
@@ -178,10 +179,10 @@ const struct {
 void shutdown (void);
 void liChargerCB (uint8_t pwm);
 void adcRead (void);
+void vBattHysteresis (void);
 void nvmValidate (void);
 void nvmRead (void);
 void nvmWrite (void);
-uint32_t vBattHysteresis (void);
 void checkBattState (void);
 void printState (void);
 int cmdStat (int argc, char **argv);
@@ -463,9 +464,32 @@ void adcRead (void) {
 
     // Simulate low input voltage during test mode
     if (G.testMode) G.vIn = 0;
+
+    // Calculate V_batt_h
+    vBattHysteresis ();
+
   }
 }
 
+
+
+/*
+ * Stabilize V_batt via hysteresis
+ */
+void vBattHysteresis (void) {
+  static uint32_t lastVBatt = 0;
+  static int8_t lastSign = 1;
+  int32_t delta = G.vBatt - lastVBatt;
+  int8_t sign = sgn (delta);
+  if ( abs (delta) > 15000 || sign == lastSign) {
+    G.vBattH = G.vBatt;
+    lastSign = sign;
+    lastVBatt = G.vBatt;
+  }
+  else {
+    G.vBattH = lastVBatt;
+  }
+}
 
 
 
@@ -518,27 +542,6 @@ void nvmWrite (void) {
 
 
 
-/*
- * Stabilize V_batt via hysteresis
- * Return: stabilized V_batt
- */
-uint32_t vBattHysteresis (void) {
-  static uint32_t lastVBatt = 0;
-  static int8_t lastSign = 1;
-  int32_t delta = G.vBatt - lastVBatt;
-  int8_t sign = sgn (delta);
-  uint32_t v;
-  if ( abs (delta) > 15000 || sign == lastSign) {
-    v = G.vBatt;
-    lastSign = sign;
-    lastVBatt = G.vBatt;
-  }
-  else {
-    v = lastVBatt;
-  }
-  return v;
-}
-
 
 
 /*
@@ -546,12 +549,11 @@ uint32_t vBattHysteresis (void) {
  */
 void checkBattState (void) {
   // Check the battery voltage
-  uint32_t v = vBattHysteresis ();
-  if      (v < (uint32_t)V_BATT_THR_LOW) G.battState = BATT_STATE_0;
-  else if (v < (uint32_t)V_BATT_THR_25)  G.battState = BATT_STATE_25;
-  else if (v < (uint32_t)V_BATT_THR_50)  G.battState = BATT_STATE_50;
-  else if (v < (uint32_t)V_BATT_THR_75)  G.battState = BATT_STATE_75;
-  else                                         G.battState = BATT_STATE_100;
+  if      (G.vBattH < (uint32_t)V_BATT_THR_LOW) G.battState = BATT_STATE_0;
+  else if (G.vBattH < (uint32_t)V_BATT_THR_25)  G.battState = BATT_STATE_25;
+  else if (G.vBattH < (uint32_t)V_BATT_THR_50)  G.battState = BATT_STATE_50;
+  else if (G.vBattH < (uint32_t)V_BATT_THR_75)  G.battState = BATT_STATE_75;
+  else                                          G.battState = BATT_STATE_100;
 
   if (G.state != STATE_INIT_E && G.state != STATE_INIT) {
 
@@ -609,12 +611,11 @@ void printState (void) {
   if (LiCharger.pwm > 0) {
     Cli.xprintf (" CHARGING");
   }
-  // Reduce voltage resolution and add hysteresis to avoid frequent tracing upon voltage change
-  uint32_t v = vBattHysteresis ();
-  uint8_t v1 = v/1000000;
-  uint8_t v10 = v/100000 - v1*10;
+  // Reduce voltage resolution to avoid frequent tracing upon voltage change
+  uint8_t v1 = G.vBattH/1000000;
+  uint8_t v10 = G.vBattH/100000 - v1*10;
   uint8_t v100;
-  uint8_t v1000 = v/1000 - v1*1000 - v10*100;
+  uint8_t v1000 = G.vBattH/1000 - v1*1000 - v10*100;
   if      (v1000 < 25) v100 = 0;
   else if (v1000 < 75) v100 = 5;
   else    v100 = 0, v10++;
