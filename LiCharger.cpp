@@ -150,4 +150,5 @@ void LiChargerClass::stop (void) {
   active = false;
   pwm = 0;
   callbackFct (pwm);
+  state = LI_CHARGER_STATE_STANDBY_E;
 }
