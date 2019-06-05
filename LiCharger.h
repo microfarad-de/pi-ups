@@ -33,18 +33,31 @@
 /*
  * State machine states
  */
-enum LiChargerState_t { 
+enum LiChargerState_t {
   LI_CHARGER_STATE_STANDBY_E,    // Standby (state entry)
   LI_CHARGER_STATE_STANDBY,      // Standby
   LI_CHARGER_STATE_CHARGE_E,     // Charging (state entry)
-  LI_CHARGER_STATE_CHARGE,       // Charging
+  LI_CHARGER_STATE_CHARGE        // Charging
 };
+
+
+
+/*
+ * Error codes
+ */
+enum LiChargerError_t {
+  LI_CHARGER_ERROR_NONE = 0,     // No error
+  LI_CHARGER_ERROR_HV   = 1,     // Battery voltage too high
+  LI_CHARGER_ERROR_LV   = 2      // Battery voltage too low
+};
+
+
 
 /*
  * Lithium-Ion battery charger class
  */
 class LiChargerClass {
-  
+
   public:
     /*
      * Initialization function
@@ -79,19 +92,20 @@ class LiChargerClass {
 
     bool active = false;      // Indicates if the charging is active
     uint8_t  nCells = 1;      // N_cells - Number of Lithium-Ion cells
-    uint16_t iChrg = 0;       // I_chrg - Maximum charging current in mA 
-    uint16_t iFull = 150;     // I_full - End of charge current in mA
-    uint8_t  pwm = 0;         // PWM duty cycle (0..255)
+    uint16_t iChrg  = 0;      // I_chrg - Maximum charging current in mA 
+    uint16_t iFull  = 150;    // I_full - End of charge current in mA
+    uint8_t  pwm    = 0;      // PWM duty cycle (0..255)
     LiChargerState_t state = LI_CHARGER_STATE_STANDBY_E;  // Charger state
-
+    LiChargerError_t error = LI_CHARGER_ERROR_NONE;       // Error code
   private:
-    
+
     void (*callbackFct)(uint8_t pwm);
     uint32_t updateTs = 0;
-    uint32_t startTs = 0;
+    uint32_t startTs  = 0;
     uint32_t fullTs   = 0;
-    uint32_t iMax = 0;
-    bool safeCharge = true;
+    uint32_t errorTs  = 0;
+    uint32_t iMax     = 0;
+    bool safeCharge   = true;
 };
 
 

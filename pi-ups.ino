@@ -234,9 +234,9 @@ void setup (void) {
   Cli.xputs ("");
   Cli.xputs ("Enter 'h' for help\n");
   Cli.newCmd ("stat", "Brief status", cmdStat);
-  Cli.newCmd (".", "", cmdStat);
+  Cli.newCmd ("s", "", cmdStat);
   Cli.newCmd ("status", "Detaild status", cmdStatus);
-  Cli.newCmd ("s", "", cmdStatus);
+  Cli.newCmd (".", "", cmdStatus);
   Cli.newCmd ("rom", "EEPROM status", cmdEEPROM);
   Cli.newCmd ("r", "", cmdEEPROM);
   Cli.newCmd ("halt", "Initiate shutdown (arg: [abort])", cmdHalt);
@@ -608,7 +608,7 @@ void printState (void) {
   if (G.testMode) {
     Cli.xprintf (" TEST");
   }
-  if (LiCharger.pwm > 0) {
+  if (LiCharger.state == LI_CHARGER_STATE_CHARGE) {
     Cli.xprintf (" CHARGING");
   }
   // Reduce voltage resolution to avoid frequent tracing upon voltage change
@@ -676,7 +676,7 @@ int cmdStatus (int argc, char **argv) {
   Cli.xputs ("");
   Cli.xprintf ("state      = ");
   printState ();
-  Cli.xprintf ("battery    = %u%%\n", G.battState);
+  Cli.xprintf ("battery    = %u%% E%u\n", G.battState, LiCharger.error);
   Cli.xprintf ("V_in       = %lumV\n", G.vIn / 1000);
   Cli.xprintf ("V_ups      = %lumV\n", G.vUps / 1000);
   Cli.xprintf ("V_batt     = %lumV\n", G.vBatt / 1000);
