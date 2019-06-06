@@ -68,7 +68,7 @@
 #define V_BATT_THR_50       3600000   // 3.6 V - V_batt threshold in µV that roughly corresponds to 50% battery charge
 #define V_BATT_THR_25       3400000   // 3.4 V - V_batt threshold in µV that roughly corresponds to 25% battery charge
 #define V_BATT_THR_LOW      3200000   // 3.2 V - V_batt threshold in µV for initiating a system shutdown
-#define V_BATT_HYST_THR      100000   // 0.1 V - Hysteresis threshold for V_batt_h
+#define V_BATT_HYST_THR       30000   // 0.03 V - Hysteresis threshold in µV for V_batt_h
 #define V_BATT_THR_ERROR    1000000   // 1.0 V - V_batt threshold in µV for signalling a battery error
 #define V_UPS_THR_ERROR     4900000   // 4.9 V - V_ups threshold in µV for signalling a DC-DC converter error
 #define INITIAL_DELAY           500   // Initial power on delay in ms
@@ -295,7 +295,7 @@ void loop (void) {
   shutdown ();
 
   // Send the CPU into sleep mode
-  powerSave ();
+  //powerSave ();
 
   // Main state machine
   switch (G.state) {
