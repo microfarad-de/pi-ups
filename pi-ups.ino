@@ -31,6 +31,7 @@
 #define VERSION_MAINT 0  // maintenance version
 
 #include <avr/wdt.h>
+#include <avr/sleep.h>
 #include <Arduino.h>
 #include "Helper.h"
 #include "LiCharger.h"
@@ -66,7 +67,8 @@
 #define V_BATT_THR_75       3800000   // 3.8 V - V_batt threshold in µV that roughly corresponds to 75% battery charge
 #define V_BATT_THR_50       3600000   // 3.6 V - V_batt threshold in µV that roughly corresponds to 50% battery charge
 #define V_BATT_THR_25       3400000   // 3.4 V - V_batt threshold in µV that roughly corresponds to 25% battery charge
-#define V_BATT_THR_LOW      3200000   // 3.2. V - V_batt threshold in µV for initiating a system shutdown
+#define V_BATT_THR_LOW      3200000   // 3.2 V - V_batt threshold in µV for initiating a system shutdown
+#define V_BATT_HYST_THR      100000   // 0.1 V - Hysteresis threshold for V_batt_h
 #define V_BATT_THR_ERROR    1000000   // 1.0 V - V_batt threshold in µV for signalling a battery error
 #define V_UPS_THR_ERROR     4900000   // 4.9 V - V_ups threshold in µV for signalling a DC-DC converter error
 #define INITIAL_DELAY           500   // Initial power on delay in ms
@@ -177,6 +179,7 @@ const struct {
  * Function prototypes
  */
 void shutdown (void);
+void powerSave (void);
 void liChargerCB (uint8_t pwm);
 void adcRead (void);
 void vBattHysteresis (void);
@@ -290,6 +293,9 @@ void loop (void) {
 
   // Handle shutdown command
   shutdown ();
+
+  // Send the CPU into sleep mode
+  powerSave ();
 
   // Main state machine
   switch (G.state) {
@@ -426,6 +432,19 @@ void shutdown (void) {
 }
 
 
+/*
+ * Send the CPU into sleep mode
+ */
+void powerSave (void) {
+  set_sleep_mode (SLEEP_MODE_IDLE);  // Configure lowest sleep mode that keeps UART active
+  cli ();                            // Disable interrupts
+  sleep_enable ();                   // Prepare for sleep
+  sei ();                            // Enable interrupts
+  sleep_cpu ();                      // Send the CPU into sleep mode
+  sleep_disable ();                  // CPU will wake-up here
+}
+
+
 
 /*
  * Callback function in use by the battery charger
@@ -481,7 +500,7 @@ void vBattHysteresis (void) {
   static int8_t lastSign = 1;
   int32_t delta = G.vBatt - lastVBatt;
   int8_t sign = sgn (delta);
-  if ( abs (delta) > 15000 || sign == lastSign) {
+  if ( abs (delta) > (int32_t)V_BATT_HYST_THR || sign == lastSign) {
     G.vBattH = G.vBatt;
     lastSign = sign;
     lastVBatt = G.vBatt;

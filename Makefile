@@ -32,9 +32,9 @@
 #
 # - The following environment variables need to be defined on your
 #   host system (the actual values depend on your system configuration):
-#      ARDUINO_DIR=/opt/arduino
-#      ARDMK_DIR=/opt/arduino-mk
-#      MONITOR_PORT=/dev/ttyUSB0
+#      export ARDUINO_DIR=/opt/arduino
+#      export ARDMK_DIR=/opt/arduino-mk
+#      export MONITOR_PORT=/dev/ttyUSB0
 
 
 
