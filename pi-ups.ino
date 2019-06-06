@@ -433,7 +433,12 @@ void shutdown (void) {
 
 
 /*
- * Send the CPU into sleep mode
+ * Send the CPU Into Light Sleep Mode
+ * 
+ * The CPU will be waken-up within 1 millisecond by the Timer 0 millis() interrupt.
+ * 
+ * Please refer to ATmega328P datasheet Section 14.2. "Sleep Modes" for more 
+ * information about the different sleep modes.
  */
 void powerSave (void) {
   set_sleep_mode (SLEEP_MODE_IDLE);  // Configure lowest sleep mode that keeps UART active
