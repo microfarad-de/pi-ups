@@ -235,18 +235,18 @@ void setup (void) {
   Cli.xputs ("");
   Cli.xprintf ("V %d.%d.%d\n", VERSION_MAJOR, VERSION_MINOR, VERSION_MAINT);
   Cli.xputs ("");
-  Cli.xputs ("Enter 'h' for help\n");
+  Cli.xputs ("'h' for help\n");
   Cli.newCmd ("stat", "Brief status", cmdStat);
   Cli.newCmd ("s", "", cmdStat);
   Cli.newCmd ("status", "Detailed status", cmdStatus);
   Cli.newCmd (".", "", cmdStatus);
   Cli.newCmd ("rom", "EEPROM status", cmdEEPROM);
   Cli.newCmd ("r", "", cmdEEPROM);
-  Cli.newCmd ("halt", "Initiate shutdown (arg: [abort])", cmdHalt);
-  Cli.newCmd ("test", "Test mode (arg: [abort])", cmdTest);
+  Cli.newCmd ("halt", "Shutdown (arg: [abort])", cmdHalt);
+  Cli.newCmd ("test", "Test (arg: [abort])", cmdTest);
   Cli.newCmd ("cal", "Calibrate (arg: <start|stop|vin|vups|vbatt>)", cmdCal);
-  Cli.newCmd ("rshunt", "Set R_shunt in mΩ", cmdRshunt);
-  Cli.newCmd ("vdiode", "Set V_diode in mV", cmdVdiode);
+  Cli.newCmd ("rshunt", "Set R_shunt (arg: <mΩ>)", cmdRshunt);
+  Cli.newCmd ("vdiode", "Set V_diode (arg: <mV>)", cmdVdiode);
   //Cli.showHelp ();
 
   // Initialize the ADC
@@ -684,11 +684,11 @@ int cmdHalt (int argc, char **argv) {
  */
 int cmdTest (int argc, char **argv) {
   if (strcmp(argv[1], "abort") == 0) {
-    Cli.xputs("Test mode abort");
+    Cli.xputs("Test abort");
     G.testMode = false;
   }
   else if (!G.shutdown) {
-    Cli.xputs("Test mode");
+    Cli.xputs("Test");
     G.testMode = true;
   }
   return 0;
@@ -776,11 +776,11 @@ int cmdCal (int argc, char **argv) {
     if      (strcmp(argv[1], "vin"  ) == 0) calVin (vRef);
     else if (strcmp(argv[1], "vups" ) == 0) calVups (vRef);
     else if (strcmp(argv[1], "vbatt") == 0) calVbatt (vRef);
-    else if (strcmp(argv[1], "stop") == 0) G.state = STATE_EXTERNAL_E, Cli.xputs ("Cal. mode stop");
+    else if (strcmp(argv[1], "stop") == 0) G.state = STATE_EXTERNAL_E, Cli.xputs ("Calibration stop");
   }
   else if (strcmp(argv[1], "start") == 0) {
     G.state = STATE_CALIBRATE_E;
-    Cli.xputs ("Cal. mode start");
+    Cli.xputs ("Calibration start");
   }
   return 0;
 }
