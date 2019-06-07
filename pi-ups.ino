@@ -44,7 +44,7 @@
 /*
  * Pin assignment
  */
-#define NUM_APINS                4  // Number of analog pins in use
+#define NUM_APINS                3  // Number of analog pins in use
 #define V_IN_APIN         ADC_PIN0  // Analog pin for measuring V_in
 #define V_BATT_APIN       ADC_PIN2  // Analog pin for measuring V_batt
 #define V_UPS_APIN        ADC_PIN3  // Analog pin for measuring V_ups
@@ -250,7 +250,8 @@ void setup (void) {
   //Cli.showHelp ();
 
   // Initialize the ADC
-  ADConv.initialize (ADC_PRESCALER_128, ADC_INTERNAL, NUM_APINS, ADC_AVG_SAMPLES);
+  AdcPin_t adcPins[NUM_APINS] = {V_IN_APIN, V_BATT_APIN, V_UPS_APIN};
+  ADConv.initialize (ADC_PRESCALER_128, ADC_INTERNAL, ADC_AVG_SAMPLES, NUM_APINS, adcPins);
 
   // Initialize the battery charger
   LiCharger.initialize (1, I_CHRG, liChargerCB);
@@ -434,10 +435,10 @@ void shutdown (void) {
 
 /*
  * Send the CPU Into Light Sleep Mode
- * 
+ *
  * The CPU will be waken-up within 1 millisecond by the Timer 0 millis() interrupt.
- * 
- * Please refer to ATmega328P datasheet Section 14.2. "Sleep Modes" for more 
+ *
+ * Please refer to ATmega328P datasheet Section 14.2. "Sleep Modes" for more
  * information about the different sleep modes.
  */
 void powerSave (void) {

@@ -1,15 +1,15 @@
-/* 
+/*
  * Lithium-Ion Battery Charger Class
- * 
+ *
  * This source file is part of the Raspberry Pi UPS Arduino firmware
  * found under http://www.github.com/microfarad-de/pi-ups
- * 
+ *
  * Please visit:
  *   http://www.microfarad.de
  *   http://www.github.com/microfarad-de
- * 
+ *
  * Copyright (C) 2019 Karim Hraibi (khraibi at gmail.com)
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -21,8 +21,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>. 
- * 
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ *
  */
 
  #include "LiCharger.h"
@@ -43,7 +43,7 @@
 #define I_SAFE_DIVIDER       10  // Divide I_chrg by this value to calculate I_safe, which is the reduced safety charging current
 #define START_DELAY        2000  // Time duration in ms during which V shall be between V_START_MIN and V_START_MAX before starting to charge
 #define FULL_DELAY        20000  // Time duration in ms during which I_full shall not be exceeded in order to assume that battery is full
-#define UPDATE_DELAY        150  // Time interval in ms for updating the output by one increment
+#define UPDATE_DELAY        100  // Time interval in ms for updating the output by one increment
 #define ERROR_DELAY         150  // Time duration in ms during which I or V shall be out of bounds in order to trigger an error condition
 
 
