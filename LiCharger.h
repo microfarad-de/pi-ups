@@ -1,15 +1,15 @@
-/* 
+/*
  * Lithium-Ion Battery Charger Class
- * 
+ *
  * This source file is part of the Raspberry Pi UPS Arduino firmware
  * found under http://www.github.com/microfarad-de/pi-ups
- * 
+ *
  * Please visit:
  *   http://www.microfarad.de
  *   http://www.github.com/microfarad-de
- * 
+ *
  * Copyright (C) 2019 Karim Hraibi (khraibi at gmail.com)
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -21,8 +21,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>. 
- * 
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ *
  */
 #ifndef __LiCharger_H_
 #define __LiCharger_H_
@@ -64,7 +64,7 @@ class LiChargerClass {
      */
     void initialize (
         uint8_t  nCells,      // N_cells - Number of Lithium-Ion cells
-        uint16_t iChrg,       // I_chrg - Constant charging current in mA 
+        uint16_t iChrg,       // I_chrg - Constant charging current in mA
         void (*callbackFct)(  // Callback function for controlling the PWM hardware
             uint8_t pwm       // PWM duty cycle
             )
@@ -72,7 +72,7 @@ class LiChargerClass {
 
     /*
      * This function must be called within the Arduino main loop
-     * it provides the Li-Ion charger with the latest voltage and 
+     * it provides the Li-Ion charger with the latest voltage and
      * current readings
      */
     void loopHandler (
@@ -92,13 +92,12 @@ class LiChargerClass {
 
     bool active = false;      // Indicates if the charging is active
     uint8_t  nCells = 1;      // N_cells - Number of Lithium-Ion cells
-    uint16_t iChrg  = 0;      // I_chrg - Maximum charging current in mA 
-    uint16_t iFull  = 150;    // I_full - End of charge current in mA
+    uint16_t iChrg  = 0;      // I_chrg - Maximum charging current in mA
     uint8_t  pwm    = 0;      // PWM duty cycle (0..255)
     LiChargerState_t state = LI_CHARGER_STATE_STANDBY_E;  // Charger state
     LiChargerError_t error = LI_CHARGER_ERROR_NONE;       // Error code
-  private:
 
+  private:
     void (*callbackFct)(uint8_t pwm);
     uint32_t updateTs = 0;
     uint32_t startTs  = 0;
