@@ -238,7 +238,7 @@ void setup (void) {
   Cli.xputs ("Enter 'h' for help\n");
   Cli.newCmd ("stat", "Brief status", cmdStat);
   Cli.newCmd ("s", "", cmdStat);
-  Cli.newCmd ("status", "Detaild status", cmdStatus);
+  Cli.newCmd ("status", "Detailed status", cmdStatus);
   Cli.newCmd (".", "", cmdStatus);
   Cli.newCmd ("rom", "EEPROM status", cmdEEPROM);
   Cli.newCmd ("r", "", cmdEEPROM);
