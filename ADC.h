@@ -108,7 +108,7 @@ class AdcClass {
 
     /*
      * Read all preset ADC inputs
-     * When called repeatedly it will cycle through the pre-configuraed ADC chanels defined by numPins,
+     * When called repeatedly it will cycle through the pre-configuraed ADC channels defined by numPins,
      * get the ADC results, average them as defined in avgSamples and store them in the result array.
      * Return value:
      *  false : no result available yet
