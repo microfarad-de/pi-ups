@@ -243,10 +243,10 @@ void setup (void) {
   Cli.newCmd ("rom", "EEPROM status", cmdEEPROM);
   Cli.newCmd ("r", "", cmdEEPROM);
   Cli.newCmd ("halt", "Initiate shutdown (arg: [abort])", cmdHalt);
+  Cli.newCmd ("test", "Test mode (arg: [abort])", cmdTest);
   Cli.newCmd ("cal", "Calibrate (arg: <start|stop|vin|vups|vbatt>)", cmdCal);
   Cli.newCmd ("rshunt", "Set R_shunt in mΩ", cmdRshunt);
   Cli.newCmd ("vdiode", "Set V_diode in mV", cmdVdiode);
-  Cli.newCmd ("test", "Test mode (arg: [abort])", cmdTest);
   //Cli.showHelp ();
 
   // Initialize the ADC

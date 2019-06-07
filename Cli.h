@@ -1,15 +1,15 @@
-/* 
+/*
  * Command-Line Interpreter
- * 
+ *
  * This source file is part of the Raspberry Pi UPS Arduino firmware
  * found under http://www.github.com/microfarad-de/pi-ups
- * 
+ *
  * Please visit:
  *   http://www.microfarad.de
  *   http://www.github.com/microfarad-de
- * 
+ *
  * Copyright (C) 2019 Karim Hraibi (khraibi at gmail.com)
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -21,7 +21,7 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>. 
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #ifndef __Cli_H_
@@ -35,10 +35,10 @@
 
 
 
-/* 
- * CLI command structure 
+/*
+ * CLI command structure
  */
-typedef struct 
+typedef struct
 {
   const char *str;          // Command name
   const char *doc;          // Command description
@@ -46,13 +46,13 @@ typedef struct
 } CliCmd_s;
 
 
-/* 
+/*
  * Command line interpreter class
  */
 class CliClass
 {
   public:
-    /* 
+    /*
      * Initialize a CLI object
      * Note: this function calls Serial.begin
      */
@@ -60,7 +60,7 @@ class CliClass
       uint32_t serialBaud // Serial Baud rate
       );
 
-    /* 
+    /*
      * Define a new CLI command
      */
     int newCmd (
@@ -81,12 +81,17 @@ class CliClass
      */
     int getCmd (void);
 
-    /* 
+    /*
      * Print a list of available commands and their description
      */
     void showHelp (void);
-    
-    /* 
+
+    /*
+     * Sort commands in alphabetical order
+     */
+    void sortCmds (void);
+
+    /*
      * Emulate stdio functions
      */
     void xprintf (const char *fmt, ... );
@@ -94,13 +99,12 @@ class CliClass
     void xputchar (int c);
     int xgetchar (void);
 
-    
-  private:  
-    
+
+  private:
+
     void textPadding (char c, int size);                              // Insert repeated sequence of characters
     void textPrintBlock (const char *text, int lineSize, int offset); // Print a formatted block of text
-    void sortCmds (int numCmds, CliCmd_s **cmd);                      // Sort commands in alphabetical order
- 
+
     char argBuf[CLI_NUM_ARG][CLI_ARG_LEN]; // Array of charactars for commands and arguments
     char *argv[CLI_NUM_ARG];               // Array of pointers to argument strings
     CliCmd_s cmd[CLI_NUM_CMD];             // Array of commands
@@ -112,7 +116,6 @@ class CliClass
     enum {START, DISCARD_LEADING_SPACES, CAPTURE_STRING, DISCARD_TRAILING_SPACES, EVALUATE} state = START; // State
     int argc = 0;                          // Number of arguments
     int idx = 0;                           // Character index
-    
 };
 
 

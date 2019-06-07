@@ -1,15 +1,15 @@
-/* 
+/*
  * Command-Line Interpreter
- * 
+ *
  * This source file is part of the Raspberry Pi UPS Arduino firmware
  * found under http://www.github.com/microfarad-de/pi-ups
- * 
+ *
  * Please visit:
  *   http://www.microfarad.de
  *   http://www.github.com/microfarad-de
- * 
+ *
  * Copyright (C) 2019 Karim Hraibi (khraibi at gmail.com)
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -22,7 +22,7 @@
  *
  * You should have received a copy of the GNU General Public License
  */
- 
+
 #include <Arduino.h>
 //#include <stdio.h>
 //#include <stdlib.h>
@@ -45,11 +45,11 @@ void CliClass::init (uint32_t serialBaud)
   int i;
   this->numCmds = 0;
   this->initialized = true;
-  
+
   for (i = 0; i < CLI_NUM_ARG; i++) {
     this->argv[i] = this->argBuf[i];
   }
-  
+
   Serial.begin(serialBaud);
 }
 
@@ -57,7 +57,7 @@ void CliClass::init (uint32_t serialBaud)
 int CliClass::newCmd (const char *name, const char *description, int(*function)(int, char **))
 {
   if (!initialized) return EXIT_FAILURE;
-  
+
   if (this->numCmds >= CLI_NUM_CMD) {
     xprintf("OVF!\n");
     return EXIT_FAILURE;
@@ -101,7 +101,7 @@ int CliClass::getCmd (void)
         state = CAPTURE_STRING;
       }
       break;
-        
+
     case CAPTURE_STRING:
       if ((c == ' ') || (c == '\t') || (idx >= CLI_ARG_LEN - 1)) {
         argv[argc][idx] = 0;
@@ -131,7 +131,7 @@ int CliClass::getCmd (void)
       else if ((c > ' ') && (argc < CLI_NUM_ARG)) {
         argv[argc][idx] = c;
         idx++;
-        state = CAPTURE_STRING;    
+        state = CAPTURE_STRING;
       }
       break;
 
@@ -146,12 +146,12 @@ int CliClass::getCmd (void)
           rv = this->cmd[i].fct(argc, argv);
           return rv;
         }
-      }        
+      }
       xprintf("Unknown '%s'\n", argv[0]);
       break;
 
-    default:       
-      break;      
+    default:
+      break;
   }
 
   return EXIT_FAILURE;
@@ -184,8 +184,8 @@ void CliClass::showHelp (void)
   }
 
   // Sort commands in alphabetical order
-  sortCmds(numCmds, cmd);
-  
+  //sortCmds ();
+
   Cli.xputs ("");
   xprintf("Commands:\n");
 
@@ -212,34 +212,34 @@ void CliClass::showHelp (void)
         duplicate = true;
       }
     }
-    
+
     if (duplicate) {
       xprintf(")");
       len += 1;
     }
-    
+
     textPadding(' ', INDENT - len - 2);
     xprintf(": ");
     textPrintBlock(cmd[i]->doc, TEXT_LINE_SIZE, INDENT);
   }
-  
+
   xprintf("  h");
   textPadding(' ', INDENT - 3 - 2);
   xprintf(": ");
-  textPrintBlock("help screen", TEXT_LINE_SIZE, INDENT);
+  textPrintBlock("Help", TEXT_LINE_SIZE, INDENT);
 }
 
 
-void CliClass::sortCmds (int numCmds, CliCmd_s **cmd)
+void CliClass::sortCmds (void)
 {
   bool sorted = false;
   int i;
-  CliCmd_s *temp;
+  CliCmd_s temp;
 
   while (!sorted) {
     sorted = true;
     for (i = 0; i < numCmds - 1; i++) {
-      if (strcmp(cmd[i]->str, cmd[i + 1]->str) > 0) {
+      if (strcmp(cmd[i].str, cmd[i + 1].str) > 0) {
         sorted = false;
         temp = cmd[i];
         cmd[i] = cmd[i + 1];
