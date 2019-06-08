@@ -322,6 +322,7 @@ void loop (void) {
       LiCharger.start ();                   // Start battery charging
       digitalWrite (IN_MOSFET_PIN, LOW);    // Activate external power
       digitalWrite (BATT_MOSFET_PIN, HIGH); // Deactivate battery power
+      G.statRcvd = false;
       G.state = STATE_EXTERNAL;
     case STATE_EXTERNAL:
 
@@ -414,6 +415,7 @@ void shutdown (void) {
   if (G.shutdown) {
     Led.blink (-1, 50, 50);
     G.testMode = false;
+    G.statRcvd = false;
 
     if (digitalRead (OUT_MOSFET_PIN) == LOW) {
       // Power down if HALT_DELAY has elapsed
