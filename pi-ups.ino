@@ -325,7 +325,7 @@ void loop (void) {
     case STATE_EXTERNAL:
 
       if (!G.shutdown) {
-        Led.blink (-1, 100, 1900);
+        Led.blink (-1, 100, 2900);
       }
       // Switch to battery power if V_in is below the specified threshold
       if (G.vIn < (uint32_t)V_IN_THR_BATTERY) {
