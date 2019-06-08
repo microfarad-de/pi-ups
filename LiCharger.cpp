@@ -39,7 +39,7 @@
 #define V_SAFE          2800000  // 2.80 V - Chare with reduced current I_safe below this voltage per cell in µV
 #define V_WINDOW           2000  // 0.002 V - Do not regulate voltage when within +/- this window (per cell) in µV
 #define I_WINDOW          15000  // 0.015 A - Do not regulate current when within +/- this window in µA
-#define I_FULL              150  // 150 mA - End of charge current in mA
+#define I_FULL              200  // 200 mA - End of charge current in mA
 #define I_SAFE_DIVIDER       10  // Divide I_chrg by this value to calculate I_safe, which is the reduced safety charging current
 #define START_DELAY        2000  // Time duration in ms during which V shall be between V_START_MIN and V_START_MAX before starting to charge
 #define FULL_DELAY        20000  // Time duration in ms during which I_full shall not be exceeded in order to assume that battery is full
