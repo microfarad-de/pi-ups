@@ -143,6 +143,7 @@ struct {
   uint8_t error = 0;     // Error code
   bool shutdown = false; // System shutdown command flag
   bool testMode = false; // UPS test mode activation flag
+  bool statRcvd = false; // Set to true when the "stat" command has been received
 } G;
 
 
@@ -325,7 +326,12 @@ void loop (void) {
     case STATE_EXTERNAL:
 
       if (!G.shutdown) {
-        Led.blink (-1, 100, 2900);
+        if (G.statRcvd) {
+          // Additional blink whenever the "stat" command is received
+          Led.blink (1, 100, 100);
+          G.statRcvd = false;
+        }
+        Led.blink (-1, 100, 9900);
       }
       // Switch to battery power if V_in is below the specified threshold
       if (G.vIn < (uint32_t)V_IN_THR_BATTERY) {
@@ -654,6 +660,7 @@ void printState (void) {
  */
 int cmdStat (int argc, char **argv) {
   printState ();
+  G.statRcvd = true;
   return 0;
 }
 
