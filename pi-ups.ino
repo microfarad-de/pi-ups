@@ -676,11 +676,11 @@ int cmdStat (int argc, char **argv) {
  * measurement summary
  */
 int cmdMeas (int argc, char **argv) {
-  Cli.xprintf ("V_in %umV, ", G.vIn / 1000);
-  Cli.xprintf ("V_ups %umV, ", G.vUps / 1000);
-  Cli.xprintf ("V_batt %umV, ", G.vBatt / 1000);
-  Cli.xprintf ("I_batt %umA, ", G.iBatt / 1000);
-  Cli.xprintf ("PWM %u\n", LiCharger.pwm);
+  Cli.xprintf ("%4umV ", G.vIn / 1000);
+  Cli.xprintf ("%4umV ", G.vUps / 1000);
+  Cli.xprintf ("%4umV ", G.vBatt / 1000);
+  Cli.xprintf ("%4umA ", G.iBatt / 1000);
+  Cli.xprintf ("%3u\n", LiCharger.pwm);
   return 0;
 }
 
