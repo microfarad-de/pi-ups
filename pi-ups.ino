@@ -190,6 +190,7 @@ void nvmWrite (void);
 void checkBattState (void);
 void printState (void);
 int cmdStat (int argc, char **argv);
+int cmdMeas (int argc, char **argv);
 int cmdHalt (int argc, char **argv);
 int cmdTest (int argc, char **argv);
 int cmdStatus (int argc, char **argv);
@@ -243,6 +244,8 @@ void setup (void) {
   Cli.newCmd (".", "", cmdStatus);
   Cli.newCmd ("rom", "EEPROM status", cmdEEPROM);
   Cli.newCmd ("r", "", cmdEEPROM);
+  Cli.newCmd ("meas", "Measurement summary", cmdMeas);
+  Cli.newCmd ("m", "", cmdMeas);
   Cli.newCmd ("halt", "Shutdown (arg: [abort])", cmdHalt);
   Cli.newCmd ("test", "Test (arg: [abort])", cmdTest);
   Cli.newCmd ("cal", "Calibrate (arg: <start|stop|vin|vups|vbatt>)", cmdCal);
@@ -665,6 +668,22 @@ int cmdStat (int argc, char **argv) {
   G.statRcvd = true;
   return 0;
 }
+
+
+
+/*
+ * CLI command reporting a brief voltage and current
+ * measurement summary
+ */
+int cmdMeas (int argc, char **argv) {
+  Cli.xprintf ("V_in %umV, ", G.vIn / 1000);
+  Cli.xprintf ("V_ups %umV, ", G.vUps / 1000);
+  Cli.xprintf ("V_batt %umV, ", G.vBatt / 1000);
+  Cli.xprintf ("I_batt %umA, ", G.iBatt / 1000);
+  Cli.xprintf ("PWM %u\n", LiCharger.pwm);
+  return 0;
+}
+
 
 
 /*
