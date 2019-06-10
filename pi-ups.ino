@@ -190,8 +190,8 @@ void nvmValidate (void);
 void nvmRead (void);
 void nvmWrite (void);
 void checkBattState (void);
-void stateToString (void);
 void printState (void);
+void printBriefStatus (void);
 int cmdStat (int argc, char **argv);
 int cmdMeas (int argc, char **argv);
 int cmdHalt (int argc, char **argv);
@@ -637,7 +637,7 @@ void checkBattState (void) {
 /*
  * Convert state to string and print it
  */
-void stateToString (State_t state) {
+void printState (State_t state) {
   if (state == STATE_INIT) {
     Cli.xprintf("INIT");
   }
@@ -660,15 +660,17 @@ void stateToString (State_t state) {
 /*
  * Print system state string
  */
-void printState (void) {
-  stateToString (G.state);
+void printBriefStatus (void) {
+  static State_t lastState = STATE_INIT_E;
+  printState (G.state);
   // Print the last state upon state transition
-  if (G.state != G.lastState) {
+  if (lastState != G.lastState) {
     Cli.xprintf (" (");
-    stateToString (G.lastState);
+    printState (G.lastState);
     Cli.xprintf (")");
-    G.lastState = G.state;
   }
+  G.lastState = G.state;
+  lastState = G.state;
   if (G.shutdown) {
     Cli.xprintf (" SHUTDOWN %u", digitalRead (OUT_MOSFET_PIN));
   }
@@ -695,7 +697,7 @@ void printState (void) {
  * CLI command reporting the brief system status
  */
 int cmdStat (int argc, char **argv) {
-  printState ();
+  printBriefStatus ();
   G.statRcvd = true;
   return 0;
 }
@@ -759,7 +761,7 @@ int cmdTest (int argc, char **argv) {
 int cmdStatus (int argc, char **argv) {
   Cli.xputs ("");
   Cli.xprintf ("state      = ");
-  printState ();
+  printBriefStatus ();
   Cli.xprintf ("battery    = %u%% E%u\n", G.battState, LiCharger.error);
   Cli.xprintf ("V_in       = %lumV\n", G.vIn / 1000);
   Cli.xprintf ("V_ups      = %lumV\n", G.vUps / 1000);
