@@ -8,7 +8,7 @@ Please visit www.microfarad.de/pi-ups for a full description of this project.
 
 Unless stated otherwise within the source file headers, please feel free to use and distribute this code under the *GNU General Public License v3.0*.
 
-*Disclaimer: this projects implements a software based Lithium-Ion battery charger. Overcharging, short-circuiting or otherwise abusing Lithium-Ion batteries may result in a fire and/or a violent explosion. The author of this code neither takes any responsibility nor can be held liable for any damage caused to human beings and things due to the improper handling of Lithium-Ion batteries. Please implement this project at your own risk!*
+*Disclaimer: this project implements a software based Lithium-Ion battery charger. Overcharging, short-circuiting or otherwise abusing Lithium-Ion batteries may result in a fire and/or a violent explosion. The author of this code neither takes any responsibility nor can be held liable for any damage caused to human beings and things due to the improper handling of Lithium-Ion batteries. Please implement this project at your own risk!*
 
 ## Prerequisites
 
