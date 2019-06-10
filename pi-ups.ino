@@ -303,7 +303,7 @@ void loop (void) {
   shutdown ();
 
   // Send the CPU into sleep mode
-  powerSave ();
+  //powerSave ();
 
   // Main state machine
   switch (G.state) {
