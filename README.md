@@ -1,4 +1,4 @@
-# Raspberry Pi (UPS)
+# Raspberry Pi Uninterruptible Power Supply
 
 This repository contains the Arduino firmware implementation of an Uninterruptible Power Supply (UPS) device suitable for a Raspberry Pi or any similar single-board PC running on 5 Volts with less than 3 Amperes of power consumption. The code has been implemented and tested on an _Arduino Pro Mini_ clone board based on the _ATmega328P_ running at 16MHz. Other Arduino models would work as well.
 
