@@ -75,7 +75,7 @@
 #define EXTERNAL_DELAY         1000   // Delay in ms prior to switching back to external power
 #define SHUTDOWN_DELAY        60000   // Delay in ms prior to turning off power upon system shutdown
 #define RESTART_DELAY          5000   // Delay in ms prior to restarting the system following a shutdown
-
+#define CALIBRATE_EXIT_DELAY   3600   // Delay in seconds prior to automatically exiting the calibration mode
 
 
 
@@ -130,7 +130,8 @@ enum BattState_t {
  * Global variables
  */
 struct {
-  State_t state = STATE_INIT_E; // Current state machine state
+  State_t state     = STATE_INIT_E; // Current state machine state
+  State_t lastState = STATE_INIT;   // Previous state
   uint32_t vIn;          // V_in - external power supply voltage in µV
   uint32_t vUps;         // V_ups - voltage at the output of the DC-DC converter in µV
   uint32_t vBatt;        // V_batt - Battery voltage in µV
@@ -179,6 +180,7 @@ const struct {
 /*
  * Function prototypes
  */
+void changeState (State_t);
 void shutdown (void);
 void powerSave (void);
 void liChargerCB (uint8_t pwm);
@@ -188,6 +190,7 @@ void nvmValidate (void);
 void nvmRead (void);
 void nvmWrite (void);
 void checkBattState (void);
+void stateToString (void);
 void printState (void);
 int cmdStat (int argc, char **argv);
 int cmdMeas (int argc, char **argv);
@@ -311,11 +314,10 @@ void loop (void) {
       delayTs = ts;
       G.state = STATE_INIT;
     case STATE_INIT:
-
       // Wait for the ADC to stabilize before starting-up
       if (ts - delayTs > (uint32_t)INITIAL_DELAY) {
         digitalWrite (OUT_MOSFET_PIN, LOW);   // Activate output power
-        G.state = STATE_EXTERNAL_E;
+        changeState (STATE_EXTERNAL_E);
       }
       break;
 
@@ -328,7 +330,6 @@ void loop (void) {
       G.statRcvd = false;
       G.state = STATE_EXTERNAL;
     case STATE_EXTERNAL:
-
       if (!G.shutdown) {
         if (G.statRcvd) {
           // Additional blink whenever the "stat" command is received
@@ -339,7 +340,7 @@ void loop (void) {
       }
       // Switch to battery power if V_in is below the specified threshold
       if (G.vIn < (uint32_t)V_IN_THR_BATTERY) {
-        G.state = STATE_BATTERY_E;
+        changeState (STATE_BATTERY_E);
       }
       break;
 
@@ -352,7 +353,6 @@ void loop (void) {
       delayTs = ts;
       G.state = STATE_BATTERY;
     case STATE_BATTERY:
-
       if (!G.shutdown) {
         // Adapt the LED blinking duty cycle according to batter voltage
         if      (G.battState == BATT_STATE_0)  Led.blink (-1, 100, 100);
@@ -361,10 +361,11 @@ void loop (void) {
         else if (G.battState == BATT_STATE_75) Led.blink (-1, 750, 250);
         else                                   Led.blink (-1, 1000, 0);
       }
-
       // Switch back to external power if V_in is above the specified threshold during EXTERNAL_DELAY
-      if (G.vIn < (uint32_t) V_IN_THR_EXTERNAL) delayTs = ts;
-      if (ts - delayTs > EXTERNAL_DELAY) G.state = STATE_EXTERNAL_E;
+      if (G.vIn < (uint32_t)V_IN_THR_EXTERNAL) delayTs = ts;
+      if (ts - delayTs > EXTERNAL_DELAY) {
+        changeState (STATE_EXTERNAL_E);
+      }
       break;
 
 
@@ -376,9 +377,14 @@ void loop (void) {
       digitalWrite (IN_MOSFET_PIN, LOW);    // Activate external power
       digitalWrite (BATT_MOSFET_PIN, HIGH); // Deactivate battery power
       G.shutdown = false;
+      delayTs = ts;
       G.state = STATE_CALIBRATE;
     case STATE_CALIBRATE:
-      // Do nothing and wait for a CLI command
+      // Exit the calibration state after some time to avoid being
+      // inadvertently stuck in calibration mode
+      if (ts - delayTs > (int32_t)CALIBRATE_EXIT_DELAY * 1000) {
+        changeState (STATE_EXTERNAL_E);
+      }
       break;
 
 
@@ -392,10 +398,9 @@ void loop (void) {
       if (!G.shutdown) {
         Led.blink (-1, 200, 200);
       }
-
       // Exit error state if no errors
       if (G.error == ERROR_NONE) {
-        G.state = STATE_EXTERNAL_E;
+        changeState (STATE_EXTERNAL_E);
       }
       break;
 
@@ -404,6 +409,16 @@ void loop (void) {
 
   }
 
+}
+
+
+
+/*
+ * Perform a state machine state transition
+ */
+void changeState (State_t state) {
+  G.lastState = G.state;
+  G.state = state;
 }
 
 
@@ -559,7 +574,7 @@ void nvmRead (void) {
   if (crc != Nvm.crc) {
     Cli.xputs ("CRC error");
     G.error |= ERROR_CRC;
-    G.state = STATE_ERROR_E;
+    changeState (STATE_ERROR_E);
   }
   else {
     G.error &= ~ERROR_CRC;
@@ -597,7 +612,7 @@ void checkBattState (void) {
     if  (G.vBatt < V_BATT_THR_ERROR) {
       if ((G.error & (uint8_t)ERROR_BATTERY) == 0) {
          G.error |= ERROR_BATTERY;
-         G.state = STATE_ERROR_E;
+         changeState (STATE_ERROR_E);
       }
     }
     else {
@@ -608,7 +623,7 @@ void checkBattState (void) {
     if (G.vUps < V_UPS_THR_ERROR) {
       if ((G.error & (uint8_t)ERROR_DCDC) == 0) {
          G.error |= ERROR_DCDC;
-         G.state = STATE_ERROR_E;
+         changeState (STATE_ERROR_E);
       }
     }
     else {
@@ -620,23 +635,39 @@ void checkBattState (void) {
 
 
 /*
+ * Convert state to string and print it
+ */
+void stateToString (State_t state) {
+  if (state == STATE_INIT) {
+    Cli.xprintf("INIT");
+  }
+  else if (state == STATE_EXTERNAL) {
+    Cli.xprintf("EXTERNAL");
+  }
+  else if (state == STATE_BATTERY) {
+    Cli.xprintf("BATTERY %u%%", G.battState);
+  }
+  else if (state == STATE_CALIBRATE) {
+    Cli.xprintf("CALIBRATE");
+  }
+  else if (state == STATE_ERROR) {
+    Cli.xprintf ("ERROR %u", G.error);
+  }
+}
+
+
+
+/*
  * Print system state string
  */
 void printState (void) {
-  if (G.state == STATE_INIT) {
-    Cli.xprintf("INIT");
-  }
-  if (G.state == STATE_EXTERNAL) {
-    Cli.xprintf("EXTERNAL");
-  }
-  else if (G.state == STATE_BATTERY) {
-    Cli.xprintf("BATTERY %u%%", G.battState);
-  }
-  else if (G.state == STATE_CALIBRATE) {
-    Cli.xprintf("CALIBRATE");
-  }
-  else if (G.state == STATE_ERROR) {
-    Cli.xprintf ("ERROR %u", G.error);
+  stateToString (G.state);
+  // Print the last state upon state transition
+  if (G.state != G.lastState) {
+    Cli.xprintf (" (");
+    stateToString (G.lastState);
+    Cli.xprintf (")");
+    G.lastState = G.state;
   }
   if (G.shutdown) {
     Cli.xprintf (" SHUTDOWN %u", digitalRead (OUT_MOSFET_PIN));
@@ -804,10 +835,13 @@ int cmdCal (int argc, char **argv) {
     if      (strcmp(argv[1], "vin"  ) == 0) calVin (vRef);
     else if (strcmp(argv[1], "vups" ) == 0) calVups (vRef);
     else if (strcmp(argv[1], "vbatt") == 0) calVbatt (vRef);
-    else if (strcmp(argv[1], "stop") == 0) G.state = STATE_EXTERNAL_E, Cli.xputs ("Calibration stop");
+    else if (strcmp(argv[1], "stop") == 0) {
+      changeState (STATE_EXTERNAL_E);
+      Cli.xputs ("Calibration stop");
+    }
   }
   else if (strcmp(argv[1], "start") == 0) {
-    G.state = STATE_CALIBRATE_E;
+    changeState (STATE_CALIBRATE_E);
     Cli.xputs ("Calibration start");
   }
   return 0;
