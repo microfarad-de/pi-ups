@@ -61,7 +61,7 @@
  */
 #define SERIAL_BAUD           19200   // Serial communication baud rate
 #define I_CHRG                  500   // 500mA - Constant charging current in mA
-#define ADC_AVG_SAMPLES          32   // Number of ADC samples to be averaged
+#define ADC_AVG_SAMPLES          16   // Number of ADC samples to be averaged
 #define V_IN_THR_BATTERY    4900000   // 4.85 V - V_in thershold in µV below which the UPS will switch to battery power
 #define V_IN_THR_EXTERNAL   5000000   // 5.0 V - V_in threshold in µV above which the UPS will switch back to external power
 #define V_BATT_THR_75       3800000   // 3.8 V - V_batt threshold in µV that roughly corresponds to 75% battery charge
