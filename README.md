@@ -13,7 +13,7 @@ Unless stated otherwise within the source file headers, please feel free to use 
 ## Prerequisites
 
 * ATmega328P based Arduino Pro Mini, Arduino Nano or similar model
-* Custom boot loader from: https://github.com/microfarad-de/boot-loader
+* Custom bootloader from: https://github.com/microfarad-de/bootloader
 
 ## Circuit Diagram
 
