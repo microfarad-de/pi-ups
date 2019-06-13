@@ -834,15 +834,15 @@ int cmdVdiode (int argc, char **argv) {
 int cmdCal (int argc, char **argv) {
   if (G.state == STATE_CALIBRATE) {
     uint32_t vRef = (uint32_t)atoi(argv[2]) * 1000;
-    if      (strcmp(argv[1], "vin"  ) == 0) calVin (vRef);
-    else if (strcmp(argv[1], "vups" ) == 0) calVups (vRef);
-    else if (strcmp(argv[1], "vbatt") == 0) calVbatt (vRef);
+    if      (strcmp(argv[1], "vin"  ) == 0 && argc == 3) calVin (vRef);
+    else if (strcmp(argv[1], "vups" ) == 0 && argc == 3) calVups (vRef);
+    else if (strcmp(argv[1], "vbatt") == 0 && argc == 3) calVbatt (vRef);
     else if (strcmp(argv[1], "stop") == 0) {
       changeState (STATE_EXTERNAL_E);
       Cli.xputs ("Calibration stop");
     }
   }
-  else if (strcmp(argv[1], "start") == 0) {
+  else if (strcmp(argv[1], "start") == 0 && G.state == STATE_EXTERNAL) {
     changeState (STATE_CALIBRATE_E);
     Cli.xputs ("Calibration start");
   }
