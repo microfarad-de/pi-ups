@@ -75,8 +75,8 @@
 #define EXTERNAL_DELAY         1000   // Delay in ms prior to switching back to external power
 #define SHUTDOWN_DELAY        60000   // Delay in ms prior to turning off power upon system shutdown
 #define RESTART_DELAY          5000   // Delay in ms prior to restarting the system following a shutdown
+#define DCDC_ERROR_DELAY        500   // Delay in milliseconds prior to registering a DC-DC converter error
 #define CALIBRATE_EXIT_DELAY   3600   // Delay in seconds prior to automatically exiting the calibration mode
-
 
 
 /*
@@ -605,6 +605,9 @@ void nvmWrite (void) {
  * Check the battery state
  */
 void checkBattState (void) {
+  static uint32_t delayTs = 0;
+  uint32_t ts = millis ();
+
   // Check the battery voltage
   if      (G.vBattH < (uint32_t)V_BATT_THR_LOW) G.battState = BATT_STATE_0;
   else if (G.vBattH < (uint32_t)V_BATT_THR_25)  G.battState = BATT_STATE_25;
@@ -628,8 +631,12 @@ void checkBattState (void) {
     }
 
     // Check for DC-DC converter error
+    // An error is registered if the DC-DC converter output voltage
+    // is less than the required threshold during DCDC_ERROR_DELAY,
+    // while the battery voltage is within limits.
     // DC-DC converter error is only cleared upon reboot
-    if (G.vBatt >= V_BATT_THR_ERROR && G.vUps < V_UPS_THR_ERROR) {
+    if (!(G.vBatt >= V_BATT_THR_ERROR && G.vUps < V_UPS_THR_ERROR)) delayTs = ts;
+    if (ts - delayTs > DCDC_ERROR_DELAY) {
       if ((G.error & (uint8_t)ERROR_DCDC) == 0) {
          G.error |= ERROR_DCDC;
       }
