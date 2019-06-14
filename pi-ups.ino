@@ -142,6 +142,7 @@ struct {
   uint16_t vBattRaw;     // Raw ADC value of V_batt
   BattState_t battState; // Battery state
   uint8_t error = 0;     // Error code
+  uint8_t lastError = 0; // Last error code for detecting sporadic errors
   bool shutdown = false; // System shutdown command flag
   bool testMode = false; // UPS test mode activation flag
   bool statRcvd = false; // Set to true when the "stat" command has been received
@@ -181,6 +182,8 @@ const struct {
  * Function prototypes
  */
 void changeState (State_t);
+void raiseError (Error_t error);
+void clearError (Error_t error);
 void shutdown (void);
 void powerSave (void);
 void liChargerCB (uint8_t pwm);
@@ -428,6 +431,33 @@ void changeState (State_t state) {
 
 
 /*
+ * Raise an error condition
+ */
+void raiseError (Error_t error) {
+  if ((G.error & (uint8_t)error) == 0) {
+    G.error     |= (uint8_t)error;
+    G.lastError |= (uint8_t)error;
+    if (G.state == STATE_INIT || G.state == STATE_EXTERNAL) {
+      changeState (STATE_ERROR_E);
+    }
+  }
+}
+
+
+
+/*
+ * Clear an error condition
+ */
+void clearError (Error_t error) {
+  // Ensure that the error state is entered at least once
+  if ((G.error & (uint8_t)error) != 0 && G.state == STATE_ERROR) {
+    G.error &= ~(uint8_t)error;
+  }
+}
+
+
+
+/*
  * Shutdown routine
  */
 void shutdown (void) {
@@ -579,11 +609,7 @@ void nvmRead (void) {
   if (crc != Nvm.crc) {
     Cli.xputs ("CRC error");
     Cli.xputs ("");
-    G.error |= ERROR_CRC;
-    changeState (STATE_ERROR_E);
-  }
-  else {
-    G.error &= ~ERROR_CRC;
+    raiseError (ERROR_CRC);
   }
 }
 
@@ -605,9 +631,6 @@ void nvmWrite (void) {
  * Check the battery state
  */
 void checkBattState (void) {
-  static uint32_t delayTs = 0;
-  uint32_t ts = millis ();
-
   // Check the battery voltage
   if      (G.vBattH < (uint32_t)V_BATT_THR_LOW) G.battState = BATT_STATE_0;
   else if (G.vBattH < (uint32_t)V_BATT_THR_25)  G.battState = BATT_STATE_25;
@@ -619,27 +642,20 @@ void checkBattState (void) {
 
     // Check for battery error
     if  (G.vBatt < V_BATT_THR_ERROR) {
-      if ((G.error & (uint8_t)ERROR_BATTERY) == 0) {
-         G.error |= ERROR_BATTERY;
-      }
+      raiseError (ERROR_BATTERY);
     }
     // Clear error condition if battery voltage becomes ok
     else {
-      if ((G.error & (uint8_t)ERROR_BATTERY) != 0) {
-        G.error &= ~ERROR_BATTERY;
-      }
+      clearError (ERROR_BATTERY);
     }
 
     // Check for DC-DC converter error
-    // An error is registered if the DC-DC converter output voltage
-    // is less than the required threshold during DCDC_ERROR_DELAY,
-    // while the battery voltage is within limits.
-    // DC-DC converter error is only cleared upon reboot
-    if (!(G.vBatt >= V_BATT_THR_ERROR && G.vUps < V_UPS_THR_ERROR)) delayTs = ts;
-    if (ts - delayTs > DCDC_ERROR_DELAY) {
-      if ((G.error & (uint8_t)ERROR_DCDC) == 0) {
-         G.error |= ERROR_DCDC;
-      }
+    if (G.vUps < V_UPS_THR_ERROR) {
+      raiseError (ERROR_DCDC);
+    }
+    // Clear error condition if the DC-DC converter voltage becomes ok
+    else {
+      clearError (ERROR_DCDC);
     }
   }
 }
@@ -649,7 +665,7 @@ void checkBattState (void) {
 /*
  * Convert state to string and print it
  */
-void printState (State_t state) {
+void printState (State_t state, uint8_t battState, uint8_t error) {
   if (state == STATE_INIT) {
     Cli.xprintf("INIT");
   }
@@ -657,13 +673,14 @@ void printState (State_t state) {
     Cli.xprintf("EXTERNAL");
   }
   else if (state == STATE_BATTERY) {
-    Cli.xprintf("BATTERY %u%%", G.battState);
+    if (battState != 255) Cli.xprintf("BATTERY %u%%", battState);
+    else                  Cli.xprintf("BATTERY");
   }
   else if (state == STATE_CALIBRATE) {
     Cli.xprintf("CALIBRATE");
   }
   else if (state == STATE_ERROR) {
-    Cli.xprintf ("ERROR %u", G.error);
+    Cli.xprintf ("ERROR %u", error);
   }
 }
 
@@ -674,13 +691,14 @@ void printState (State_t state) {
  */
 void printBriefStatus (void) {
   static State_t lastState = STATE_INIT_E;
-  printState (G.state);
+  printState (G.state, G.battState, G.error);
   // Print the last state upon state transition
   if (lastState != G.lastState) {
     Cli.xprintf (" (");
-    printState (G.lastState);
+    printState (G.lastState, 255, G.lastError);
     Cli.xprintf (")");
   }
+  G.lastError = G.error;
   G.lastState = G.state;
   lastState = G.state;
   if (G.shutdown) {
@@ -691,9 +709,6 @@ void printBriefStatus (void) {
   }
   if (LiCharger.state == LI_CHARGER_STATE_CHARGE) {
     Cli.xprintf (" CHARGING");
-  }
-  if (G.error != ERROR_NONE) {
-    Cli.xprintf (" E%u", G.error);
   }
   // Reduce voltage resolution to avoid frequent tracing upon voltage change
   uint8_t v1 = G.vBattH/1000000;
