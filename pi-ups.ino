@@ -574,9 +574,11 @@ void nvmRead (void) {
   // Calculate and check CRC checksum
   crc = crcCalc ((uint8_t*)&Nvm, sizeof (Nvm) - sizeof (Nvm.crc) );
   Cli.xprintf (Str.CRC, crc);
+  Cli.xputs ("");
 
   if (crc != Nvm.crc) {
     Cli.xputs ("CRC error");
+    Cli.xputs ("");
     G.error |= ERROR_CRC;
     changeState (STATE_ERROR_E);
   }
@@ -847,7 +849,7 @@ int cmdCal (int argc, char **argv) {
       Cli.xputs ("Calibration stop");
     }
   }
-  else if (strcmp(argv[1], "start") == 0 && G.state == STATE_EXTERNAL) {
+  else if (strcmp(argv[1], "start") == 0 && (G.state == STATE_EXTERNAL || G.state == STATE_ERROR)) {
     changeState (STATE_CALIBRATE_E);
     Cli.xputs ("Calibration start");
   }
