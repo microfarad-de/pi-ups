@@ -629,7 +629,7 @@ void checkBattState (void) {
 
     // Check for DC-DC converter error
     // DC-DC converter error is only cleared upon reboot
-    if (G.vUps < V_UPS_THR_ERROR) {
+    if (G.vBatt >= V_BATT_THR_ERROR && G.vUps < V_UPS_THR_ERROR) {
       if ((G.error & (uint8_t)ERROR_DCDC) == 0) {
          G.error |= ERROR_DCDC;
       }
