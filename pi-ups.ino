@@ -69,7 +69,7 @@
 #define V_BATT_THR_25       3400000   // 3.4 V - V_batt threshold in µV that roughly corresponds to 25% battery charge
 #define V_BATT_THR_LOW      3200000   // 3.2 V - V_batt threshold in µV for initiating a system shutdown
 #define V_BATT_HYST_THR       30000   // 0.03 V - Hysteresis threshold in µV for V_batt_h
-#define V_BATT_THR_ERROR    1000000   // 1.0 V - V_batt threshold in µV for signalling a battery error
+#define V_BATT_THR_ERROR    2400000   // 2.4 V - V_batt threshold in µV for signalling a battery error
 #define V_UPS_THR_ERROR     4900000   // 4.9 V - V_ups threshold in µV for signalling a DC-DC converter error
 #define INITIAL_DELAY           500   // Initial power on delay in ms
 #define EXTERNAL_DELAY         1000   // Delay in ms prior to switching back to external power
@@ -342,6 +342,10 @@ void loop (void) {
       if (G.vIn < (uint32_t)V_IN_THR_BATTERY) {
         changeState (STATE_BATTERY_E);
       }
+      // Check for error conditions
+      if (G.error != ERROR_NONE) {
+        changeState (STATE_ERROR_E);
+      }
       break;
 
 
@@ -612,22 +616,21 @@ void checkBattState (void) {
     if  (G.vBatt < V_BATT_THR_ERROR) {
       if ((G.error & (uint8_t)ERROR_BATTERY) == 0) {
          G.error |= ERROR_BATTERY;
-         changeState (STATE_ERROR_E);
       }
     }
+    // Clear error condition if battery voltage becomes ok
     else {
-      G.error &= ~ERROR_BATTERY;
+      if ((G.error & (uint8_t)ERROR_BATTERY) != 0) {
+        G.error &= ~ERROR_BATTERY;
+      }
     }
 
     // Check for DC-DC converter error
+    // DC-DC converter error is only cleared upon reboot
     if (G.vUps < V_UPS_THR_ERROR) {
       if ((G.error & (uint8_t)ERROR_DCDC) == 0) {
          G.error |= ERROR_DCDC;
-         changeState (STATE_ERROR_E);
       }
-    }
-    else {
-      G.error &= ~ERROR_DCDC;
     }
   }
 }
@@ -679,6 +682,9 @@ void printBriefStatus (void) {
   }
   if (LiCharger.state == LI_CHARGER_STATE_CHARGE) {
     Cli.xprintf (" CHARGING");
+  }
+  if (G.error != ERROR_NONE) {
+    Cli.xprintf (" E%u", G.error);
   }
   // Reduce voltage resolution to avoid frequent tracing upon voltage change
   uint8_t v1 = G.vBattH/1000000;
@@ -759,10 +765,9 @@ int cmdTest (int argc, char **argv) {
  * CLI command for showing the detailed system status
  */
 int cmdStatus (int argc, char **argv) {
-  Cli.xputs ("");
   Cli.xprintf ("state      = ");
   printBriefStatus ();
-  Cli.xprintf ("battery    = %u%% E%u\n", G.battState, LiCharger.error);
+  Cli.xprintf ("battery    = %u%%\n", G.battState);
   Cli.xprintf ("V_in       = %lumV\n", G.vIn / 1000);
   Cli.xprintf ("V_ups      = %lumV\n", G.vUps / 1000);
   Cli.xprintf ("V_batt     = %lumV\n", G.vBatt / 1000);
@@ -771,7 +776,7 @@ int cmdStatus (int argc, char **argv) {
   Cli.xprintf ("V_in_raw   = %u\n", G.vInRaw);
   Cli.xprintf ("V_ups_raw  = %u\n", G.vUpsRaw);
   Cli.xprintf ("V_batt_raw = %u\n", G.vBattRaw);
-
+  Cli.xputs ("");
   return 0;
 }
 
@@ -781,13 +786,13 @@ int cmdStatus (int argc, char **argv) {
  * CLI command for displaying the EEPROM settings
  */
 int cmdEEPROM (int argc, char **argv) {
-  Cli.xputs ("");
   Cli.xprintf (Str.V_in_cal,   Nvm.vInCal);
   Cli.xprintf (Str.V_ups_cal,  Nvm.vUpsCal);
   Cli.xprintf (Str.V_batt_cal, Nvm.vBattCal);
   Cli.xprintf (Str.R_shunt,    Nvm.rShunt);
   Cli.xprintf (Str.V_diode,    Nvm.vDiode);
   Cli.xprintf (Str.CRC,        Nvm.crc);
+  Cli.xputs ("");
   return 0;
 }
 
