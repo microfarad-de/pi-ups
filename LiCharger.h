@@ -43,17 +43,6 @@ enum LiChargerState_t {
 
 
 /*
- * Error codes
- */
-enum LiChargerError_t {
-  LI_CHARGER_ERROR_NONE = 0,     // No error
-  LI_CHARGER_ERROR_HV   = 1,     // Battery voltage too high
-  LI_CHARGER_ERROR_LV   = 2      // Battery voltage too low
-};
-
-
-
-/*
  * Lithium-Ion battery charger class
  */
 class LiChargerClass {
@@ -95,7 +84,6 @@ class LiChargerClass {
     uint16_t iChrg  = 0;      // I_chrg - Maximum charging current in mA
     uint8_t  pwm    = 0;      // PWM duty cycle (0..255)
     LiChargerState_t state = LI_CHARGER_STATE_STANDBY_E;  // Charger state
-    LiChargerError_t error = LI_CHARGER_ERROR_NONE;       // Error code
 
   private:
     void (*callbackFct)(uint8_t pwm);

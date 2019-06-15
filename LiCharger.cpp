@@ -32,7 +32,6 @@
  * Configuration parameters
  */
 #define V_MAX           4150000  // 4.15 V - Maximum allowed battery voltage per cell in µV
-#define V_MIN           2500000  // 2.50 V - Minimum allowed battery voltage per cell in µV
 #define V_START_MAX     4100000  // 4.10 V - Start charging below this voltage per cell in µV
 #define V_START_MIN     2200000  // 2.20 V - Start charging above this voltage per cell in µV (lower than V_MIN to overcome BMS shutdown)
 #define V_SURGE         4250000  // 4.25 V - maximum allowed surge voltage threshold per cell in µV
@@ -86,7 +85,6 @@ void LiChargerClass::loopHandler (uint32_t v, uint32_t i) {
       fullTs = ts;
       iMax = (uint32_t)iChrg * 1000 / I_SAFE_DIVIDER;
       safeCharge = true;
-      error = LI_CHARGER_ERROR_NONE;
       state = LI_CHARGER_STATE_CHARGE;
     case LI_CHARGER_STATE_CHARGE:
 
@@ -123,11 +121,9 @@ void LiChargerClass::loopHandler (uint32_t v, uint32_t i) {
       }
 
       // Error Detection:
-      // Signal an error if V stays out of bounds or open circuit condition occurs during TIMEOUT_ERROR
-      if ( (v > (uint32_t)V_MIN * nCells || safeCharge) && v < (uint32_t)V_SURGE * nCells) errorTs = ts;
+      // Abort charging if V suddenly increases beyound V_SURGEs during TIMEOUT_ERROR
+      if (v < (uint32_t)V_SURGE * nCells) errorTs = ts;
       if (ts - errorTs > ERROR_DELAY) {
-        if (v > (uint32_t)V_SURGE * nCells) error = LI_CHARGER_ERROR_HV;
-        if (v < (uint32_t)V_MIN   * nCells) error = LI_CHARGER_ERROR_LV;
         state = LI_CHARGER_STATE_STANDBY_E;
       }
 
