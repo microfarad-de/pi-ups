@@ -142,7 +142,7 @@ struct {
   uint16_t vBattRaw;     // Raw ADC value of V_batt
   BattState_t battState; // Battery state
   uint8_t error = 0;     // Error code
-  uint8_t lastError = 0; // Last error code for detecting sporadic errors
+  bool errorSeen = false; // Tells if errors have been seen and can be cleared
   bool shutdown = false; // System shutdown command flag
   bool testMode = false; // UPS test mode activation flag
   bool statRcvd = false; // Set to true when the "stat" command has been received
@@ -435,8 +435,8 @@ void changeState (State_t state) {
  */
 void raiseError (Error_t error) {
   if ((G.error & (uint8_t)error) == 0) {
-    G.error     |= (uint8_t)error;
-    G.lastError |= (uint8_t)error;
+    G.error    |= (uint8_t)error;
+    G.errorSeen = false;
     if (G.state == STATE_INIT || G.state == STATE_EXTERNAL) {
       changeState (STATE_ERROR_E);
     }
@@ -449,8 +449,8 @@ void raiseError (Error_t error) {
  * Clear an error condition
  */
 void clearError (Error_t error) {
-  // Ensure that the error state is entered at least once
-  if ((G.error & (uint8_t)error) != 0 && G.state == STATE_ERROR) {
+  // Ensure that the error codes have been displayed before clearing
+  if ((G.error & (uint8_t)error) != 0 && G.errorSeen) {
     G.error &= ~(uint8_t)error;
   }
 }
@@ -665,7 +665,7 @@ void checkBattState (void) {
 /*
  * Convert state to string and print it
  */
-void printState (State_t state, uint8_t battState, uint8_t error) {
+void printState (State_t state, bool printValues) {
   if (state == STATE_INIT) {
     Cli.xprintf("INIT");
   }
@@ -673,14 +673,15 @@ void printState (State_t state, uint8_t battState, uint8_t error) {
     Cli.xprintf("EXTERNAL");
   }
   else if (state == STATE_BATTERY) {
-    if (battState != 255) Cli.xprintf("BATTERY %u%%", battState);
-    else                  Cli.xprintf("BATTERY");
+    Cli.xprintf("BATTERY");
+    if (printValues) Cli.xprintf(" %u%%", G.battState);
   }
   else if (state == STATE_CALIBRATE) {
     Cli.xprintf("CALIBRATE");
   }
   else if (state == STATE_ERROR) {
-    Cli.xprintf ("ERROR %u", error);
+    Cli.xprintf ("ERROR");
+    if (printValues) Cli.xprintf (" %u", G.error);
   }
 }
 
@@ -691,16 +692,18 @@ void printState (State_t state, uint8_t battState, uint8_t error) {
  */
 void printBriefStatus (void) {
   static State_t lastState = STATE_INIT_E;
-  printState (G.state, G.battState, G.error);
+  printState (G.state, true);
   // Print the last state upon state transition
   if (lastState != G.lastState) {
     Cli.xprintf (" (");
-    printState (G.lastState, 255, G.lastError);
+    printState (G.lastState, false);
     Cli.xprintf (")");
   }
-  G.lastError = G.error;
   G.lastState = G.state;
   lastState = G.state;
+  if (G.state == STATE_ERROR) {
+    G.errorSeen = true;
+  }
   if (G.shutdown) {
     Cli.xprintf (" SHUTDOWN %u", digitalRead (OUT_MOSFET_PIN));
   }
