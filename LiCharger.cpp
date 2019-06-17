@@ -68,6 +68,7 @@ void LiChargerClass::loopHandler (uint32_t v, uint32_t i) {
   switch (state) {
 
     case LI_CHARGER_STATE_STANDBY_E:
+      startTs = ts;
       pwm = 0;
       callbackFct (pwm);
       state = LI_CHARGER_STATE_STANDBY;
