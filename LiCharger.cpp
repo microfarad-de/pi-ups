@@ -84,6 +84,7 @@ void LiChargerClass::loopHandler (uint32_t v, uint32_t i) {
     case LI_CHARGER_STATE_CHARGE_E:
       updateTs = ts;
       fullTs = ts;
+      errorTs = ts;
       iMax = (uint32_t)iChrg * 1000 / I_SAFE_DIVIDER;
       safeCharge = true;
       state = LI_CHARGER_STATE_CHARGE;
