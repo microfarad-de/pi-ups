@@ -2,6 +2,10 @@
 #
 # Uninterruptible Power Supply (UPS) Control
 #
+# Note:
+#   User must have sudo rights to be able to perform a system shutdown
+#
+#
 # This source file is part of the follwoing repository:
 # http://www.github.com/microfarad-de/pi-ups
 #
@@ -23,10 +27,6 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-#
-#
-# Note:
-#   User must have sudo rights to be able to perform a system shutdown
 #
 
 import serial  # pip install pyserial
