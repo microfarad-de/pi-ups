@@ -470,7 +470,7 @@ void shutdown (void) {
     G.statRcvd = false;
 
     if (digitalRead (OUT_MOSFET_PIN) == LOW) {
-      // Power down if HALT_DELAY has elapsed
+      // Power down if SHUTDOWN_DELAY has elapsed
       if (ts - shutdownTs > SHUTDOWN_DELAY) {
         digitalWrite (OUT_MOSFET_PIN, HIGH);  // Deactivate output power
         shutdownTs = ts;
