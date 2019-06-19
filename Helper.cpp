@@ -1,15 +1,15 @@
-/* 
- * Helper Functions 
+/*
+ * Helper Functions
  *
  * This source file is part of the Raspberry Pi UPS Arduino firmware
  * found under http://www.github.com/microfarad-de/pi-ups
- * 
+ *
  * Please visit:
  *   http://www.microfarad.de
  *   http://www.github.com/microfarad-de
- * 
+ *
  * Copyright (C) 2019 Karim Hraibi (khraibi at gmail.com)
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -21,7 +21,7 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>. 
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "Helper.h"
@@ -70,7 +70,25 @@ uint32_t crcCalc(uint8_t *buf, uint16_t bufSize) {
 
 
 int8_t sgn (int val) {
- if (val < 0) return -1;
- else         return 1;
+  if (val < 0) return -1;
+  else         return 1;
 }
 
+
+
+uint32_t HysteresisClass::apply (uint32_t value, int32_t threshold) {
+  int32_t delta = value - lastValue;
+  int8_t sign = sgn (delta);
+  uint32_t result;
+
+  if ( abs (delta) >= threshold || sign == lastSign) {
+    result = value;
+    lastSign = sign;
+    lastValue = value;
+  }
+  else {
+    result = lastValue;
+  }
+
+  return result;
+}

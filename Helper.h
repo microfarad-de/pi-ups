@@ -54,4 +54,25 @@ uint32_t crcCalc(uint8_t *buf, uint16_t bufSize);
 int8_t sgn (int val);
 
 
+/*
+ * Class for applying a hysteresis
+ */
+class HysteresisClass {
+
+  public:
+    /*
+     * Apply the hystereseis
+     */
+    uint32_t apply (
+        uint32_t value,    // Input value
+        int32_t threshold  // Hysteresis threshold
+        );
+
+  private:
+    uint32_t lastValue = 0;
+    int8_t   lastSign  = 1;
+};
+
+
+
 #endif /* __Helper_H_ */

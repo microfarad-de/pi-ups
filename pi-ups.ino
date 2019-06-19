@@ -68,9 +68,10 @@
 #define V_BATT_THR_50       3600000   // 3.6 V - V_batt threshold in µV that roughly corresponds to 50% battery charge
 #define V_BATT_THR_25       3400000   // 3.4 V - V_batt threshold in µV that roughly corresponds to 25% battery charge
 #define V_BATT_THR_LOW      3200000   // 3.2 V - V_batt threshold in µV for initiating a system shutdown
-#define V_BATT_HYST_THR       30000   // 0.03 V - Hysteresis threshold in µV for V_batt_h
 #define V_BATT_THR_ERROR    2400000   // 2.4 V - V_batt threshold in µV for signalling a battery error
 #define V_UPS_THR_ERROR     4900000   // 4.9 V - V_ups threshold in µV for signalling a DC-DC converter error
+#define V_BATT_HYST_THR       30000   // 0.03 V - Hysteresis threshold in µV for V_batt_h
+#define ADC_HYST_THR              2   // Hysteresis threshold for raw ADC values
 #define INITIAL_DELAY           500   // Initial power on delay in ms
 #define EXTERNAL_DELAY         1000   // Delay in ms prior to switching back to external power
 #define SHUTDOWN_DELAY        60000   // Delay in ms prior to turning off power upon system shutdown
@@ -188,7 +189,6 @@ void shutdown (void);
 void powerSave (void);
 void liChargerCB (uint8_t pwm);
 void adcRead (void);
-void vBattHysteresis (void);
 void nvmValidate (void);
 void nvmRead (void);
 void nvmWrite (void);
@@ -528,6 +528,7 @@ void liChargerCB (uint8_t pwm) {
  * Read the ADC channels
  */
 void adcRead (void) {
+  static HysteresisClass vInRawHyst, vUpsRawHyst, vBattRawHyst, vBattHyst;
   bool result;
 
   // Read the ADC channels
@@ -536,9 +537,9 @@ void adcRead (void) {
 
   if (result) {
     // Get the ADC results
-    G.vInRaw   = (uint16_t)ADConv.result[V_IN_APIN];
-    G.vUpsRaw  = (uint16_t)ADConv.result[V_UPS_APIN];
-    G.vBattRaw = (uint16_t)ADConv.result[V_BATT_APIN];
+    G.vInRaw   = (uint16_t)vInRawHyst.apply   (ADConv.result[V_IN_APIN],   (int32_t)ADC_HYST_THR);
+    G.vUpsRaw  = (uint16_t)vUpsRawHyst.apply  (ADConv.result[V_UPS_APIN],  (int32_t)ADC_HYST_THR);
+    G.vBattRaw = (uint16_t)vBattRawHyst.apply (ADConv.result[V_BATT_APIN], (int32_t)ADC_HYST_THR);
 
     // Calculate voltage and current
     G.vIn   = (uint32_t)G.vInRaw * Nvm.vInCal;
@@ -551,28 +552,8 @@ void adcRead (void) {
     if (G.testMode) G.vIn = 0;
 
     // Calculate V_batt_h
-    vBattHysteresis ();
+    G.vBattH = vBattHyst.apply (G.vBatt, (int32_t)V_BATT_HYST_THR);
 
-  }
-}
-
-
-
-/*
- * Stabilize V_batt via hysteresis
- */
-void vBattHysteresis (void) {
-  static uint32_t lastVBatt = 0;
-  static int8_t lastSign = 1;
-  int32_t delta = G.vBatt - lastVBatt;
-  int8_t sign = sgn (delta);
-  if ( abs (delta) > (int32_t)V_BATT_HYST_THR || sign == lastSign) {
-    G.vBattH = G.vBatt;
-    lastSign = sign;
-    lastVBatt = G.vBatt;
-  }
-  else {
-    G.vBattH = lastVBatt;
   }
 }
 
