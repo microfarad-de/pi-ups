@@ -70,8 +70,8 @@
 #define V_BATT_THR_LOW      3200000   // 3.2 V - V_batt threshold in µV for initiating a system shutdown
 #define V_BATT_THR_ERROR    2400000   // 2.4 V - V_batt threshold in µV for signalling a battery error
 #define V_UPS_THR_ERROR     4900000   // 4.9 V - V_ups threshold in µV for signalling a DC-DC converter error
-#define V_BATT_HYST_THR       30000   // 0.03 V - Hysteresis threshold in µV for V_batt_h
-#define ADC_HYST_THR              3   // Hysteresis threshold for raw ADC values
+#define V_BATT_HYST_THR       30000   // 0.03 V - Hysteresis threshold in µV for the displayed V_batt via the 'stat' command
+#define V_MEAS_HYST_THR       15000   // 0.015 V - Hysteresis threshold in µV for the output of the 'meas' command
 #define INITIAL_DELAY           500   // Initial power on delay in ms
 #define EXTERNAL_DELAY         1000   // Delay in ms prior to switching back to external power
 #define SHUTDOWN_DELAY        60000   // Delay in ms prior to turning off power upon system shutdown
@@ -136,7 +136,6 @@ struct {
   uint32_t vIn;          // V_in - external power supply voltage in µV
   uint32_t vUps;         // V_ups - voltage at the output of the DC-DC converter in µV
   uint32_t vBatt;        // V_batt - Battery voltage in µV
-  uint32_t vBattH;       // V_batt_h - V_batt stabilized via hysteresis
   uint64_t iBatt;        // I_batt - Battery charging current in µA
   uint16_t vInRaw;       // Raw ADC value of V_in
   uint16_t vUpsRaw;      // Raw ADC value of V_ups
@@ -528,8 +527,6 @@ void liChargerCB (uint8_t pwm) {
  * Read the ADC channels
  */
 void adcRead (void) {
-  static HysteresisClass vInRawHyst, vUpsRawHyst, vBattRawHyst, vBattHyst;
-  int32_t adcHystThr;
   bool result;
 
   // Read the ADC channels
@@ -538,18 +535,10 @@ void adcRead (void) {
 
   if (result) {
 
-    // Disable ADC hysteresis during calibration
-    if (G.state == STATE_CALIBRATE) {
-      adcHystThr = 0;
-    }
-    else {
-      adcHystThr = (int32_t)ADC_HYST_THR;
-    }
-
     // Get the ADC results
-    G.vInRaw   = (uint16_t)vInRawHyst.apply   (ADConv.result[V_IN_APIN], adcHystThr);
-    G.vUpsRaw  = (uint16_t)vUpsRawHyst.apply  (ADConv.result[V_UPS_APIN], adcHystThr);
-    G.vBattRaw = (uint16_t)vBattRawHyst.apply (ADConv.result[V_BATT_APIN], adcHystThr);
+    G.vInRaw   = (uint16_t)ADConv.result[V_IN_APIN];
+    G.vUpsRaw  = (uint16_t)ADConv.result[V_UPS_APIN];
+    G.vBattRaw = (uint16_t)ADConv.result[V_BATT_APIN];
 
     // Calculate voltage and current
     G.vIn   = (uint32_t)G.vInRaw * Nvm.vInCal;
@@ -560,9 +549,6 @@ void adcRead (void) {
 
     // Simulate low input voltage during test mode
     if (G.testMode) G.vIn = 0;
-
-    // Calculate V_batt_h
-    G.vBattH = vBattHyst.apply (G.vBatt, (int32_t)V_BATT_HYST_THR);
 
   }
 }
@@ -622,12 +608,16 @@ void nvmWrite (void) {
  * Check the battery state
  */
 void checkBattState (void) {
+  static HysteresisClass Hyst;
+  // Apply a hysteresis to the battery voltage
+  uint32_t vBatt = Hyst.apply (G.vBatt, (int32_t)V_BATT_HYST_THR);
+
   // Check the battery voltage
-  if      (G.vBattH < (uint32_t)V_BATT_THR_LOW) G.battState = BATT_STATE_0;
-  else if (G.vBattH < (uint32_t)V_BATT_THR_25)  G.battState = BATT_STATE_25;
-  else if (G.vBattH < (uint32_t)V_BATT_THR_50)  G.battState = BATT_STATE_50;
-  else if (G.vBattH < (uint32_t)V_BATT_THR_75)  G.battState = BATT_STATE_75;
-  else                                          G.battState = BATT_STATE_100;
+  if      (vBatt < (uint32_t)V_BATT_THR_LOW) G.battState = BATT_STATE_0;
+  else if (vBatt < (uint32_t)V_BATT_THR_25)  G.battState = BATT_STATE_25;
+  else if (vBatt < (uint32_t)V_BATT_THR_50)  G.battState = BATT_STATE_50;
+  else if (vBatt < (uint32_t)V_BATT_THR_75)  G.battState = BATT_STATE_75;
+  else                                       G.battState = BATT_STATE_100;
 
   if (G.state != STATE_INIT_E && G.state != STATE_INIT) {
 
@@ -683,6 +673,8 @@ void printState (State_t state, bool printValues) {
  */
 void printBriefStatus (void) {
   static State_t lastState = STATE_INIT_E;
+  static HysteresisClass Hyst;
+
   printState (G.state, true);
   // Print the last state upon state transition
   if (lastState != G.lastState) {
@@ -704,11 +696,13 @@ void printBriefStatus (void) {
   if (LiCharger.state == LI_CHARGER_STATE_CHARGE) {
     Cli.xprintf (" CHARGING");
   }
-  // Reduce voltage resolution to avoid frequent tracing upon voltage change
-  uint8_t v1 = G.vBattH/1000000;
-  uint8_t v10 = G.vBattH/100000 - v1*10;
+  // Reduce voltage resolution and apply a hysteresis to avoid 
+  // frequent tracing upon voltage change
+  uint32_t vBatt = Hyst.apply (G.vBatt, (int32_t)V_BATT_HYST_THR);
+  uint8_t v1 = vBatt/1000000;
+  uint8_t v10 = vBatt/100000 - v1*10;
   uint8_t v100;
-  uint8_t v1000 = G.vBattH/1000 - v1*1000 - v10*100;
+  uint8_t v1000 = vBatt/1000 - v1*1000 - v10*100;
   if      (v1000 < 25) v100 = 0;
   else if (v1000 < 75) v100 = 5;
   else    v100 = 0, v10++;
@@ -733,9 +727,11 @@ int cmdStat (int argc, char **argv) {
  * measurement summary
  */
 int cmdMeas (int argc, char **argv) {
-  Cli.xprintf ("%4umV ", G.vIn / 1000);
-  Cli.xprintf ("%4umV ", G.vUps / 1000);
-  Cli.xprintf ("%4umV ", G.vBatt / 1000);
+  static HysteresisClass VInHyst, VUpsHyst, VBattHyst;
+
+  Cli.xprintf ("%4umV ", VInHyst.apply   (G.vIn,   (int32_t)V_MEAS_HYST_THR) / 1000);
+  Cli.xprintf ("%4umV ", VUpsHyst.apply  (G.vUps,  (int32_t)V_MEAS_HYST_THR) / 1000);
+  Cli.xprintf ("%4umV ", VBattHyst.apply (G.vBatt, (int32_t)V_MEAS_HYST_THR) / 1000);
   Cli.xprintf ("%4umA ", G.iBatt / 1000);
   Cli.xprintf ("%3u\n", LiCharger.pwm);
   return 0;
