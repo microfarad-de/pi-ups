@@ -36,7 +36,7 @@
 #include "Helper.h"
 #include "LiCharger.h"
 #include "Cli.h"
-#include "ADC.h"
+#include "Adc.h"
 #include "Led.h"
 
 
@@ -260,7 +260,7 @@ void setup (void) {
 
   // Initialize the ADC
   AdcPin_t adcPins[NUM_APINS] = {V_IN_APIN, V_BATT_APIN, V_UPS_APIN};
-  ADConv.initialize (ADC_PRESCALER_128, ADC_INTERNAL, ADC_AVG_SAMPLES, NUM_APINS, adcPins);
+  Adc.initialize (ADC_PRESCALER_128, ADC_INTERNAL, ADC_AVG_SAMPLES, NUM_APINS, adcPins);
 
   // Initialize the battery charger
   LiCharger.initialize (1, I_CHRG, liChargerCB);
@@ -530,15 +530,15 @@ void adcRead (void) {
   bool result;
 
   // Read the ADC channels
-  result = ADConv.readAll ();
+  result = Adc.readAll ();
 
 
   if (result) {
 
     // Get the ADC results
-    G.vInRaw   = (uint16_t)ADConv.result[V_IN_APIN];
-    G.vUpsRaw  = (uint16_t)ADConv.result[V_UPS_APIN];
-    G.vBattRaw = (uint16_t)ADConv.result[V_BATT_APIN];
+    G.vInRaw   = (uint16_t)Adc.result[V_IN_APIN];
+    G.vUpsRaw  = (uint16_t)Adc.result[V_UPS_APIN];
+    G.vBattRaw = (uint16_t)Adc.result[V_BATT_APIN];
 
     // Calculate voltage and current
     G.vIn   = (uint32_t)G.vInRaw * Nvm.vInCal;
