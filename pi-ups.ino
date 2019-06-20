@@ -71,7 +71,7 @@
 #define V_BATT_THR_ERROR    2400000   // 2.4 V - V_batt threshold in µV for signalling a battery error
 #define V_UPS_THR_ERROR     4900000   // 4.9 V - V_ups threshold in µV for signalling a DC-DC converter error
 #define V_BATT_HYST_THR       30000   // 0.03 V - Hysteresis threshold in µV for V_batt_h
-#define ADC_HYST_THR              2   // Hysteresis threshold for raw ADC values
+#define ADC_HYST_THR              3   // Hysteresis threshold for raw ADC values
 #define INITIAL_DELAY           500   // Initial power on delay in ms
 #define EXTERNAL_DELAY         1000   // Delay in ms prior to switching back to external power
 #define SHUTDOWN_DELAY        60000   // Delay in ms prior to turning off power upon system shutdown
