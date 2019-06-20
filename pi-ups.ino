@@ -529,6 +529,7 @@ void liChargerCB (uint8_t pwm) {
  */
 void adcRead (void) {
   static HysteresisClass vInRawHyst, vUpsRawHyst, vBattRawHyst, vBattHyst;
+  int32_t adcHystThr;
   bool result;
 
   // Read the ADC channels
@@ -536,10 +537,19 @@ void adcRead (void) {
 
 
   if (result) {
+
+    // Disable ADC hysteresis during calibration
+    if (G.state == STATE_CALIBRATE) {
+      adcHystThr = 0;
+    }
+    else {
+      adcHystThr = (int32_t)ADC_HYST_THR;
+    }
+
     // Get the ADC results
-    G.vInRaw   = (uint16_t)vInRawHyst.apply   (ADConv.result[V_IN_APIN],   (int32_t)ADC_HYST_THR);
-    G.vUpsRaw  = (uint16_t)vUpsRawHyst.apply  (ADConv.result[V_UPS_APIN],  (int32_t)ADC_HYST_THR);
-    G.vBattRaw = (uint16_t)vBattRawHyst.apply (ADConv.result[V_BATT_APIN], (int32_t)ADC_HYST_THR);
+    G.vInRaw   = (uint16_t)vInRawHyst.apply   (ADConv.result[V_IN_APIN], adcHystThr);
+    G.vUpsRaw  = (uint16_t)vUpsRawHyst.apply  (ADConv.result[V_UPS_APIN], adcHystThr);
+    G.vBattRaw = (uint16_t)vBattRawHyst.apply (ADConv.result[V_BATT_APIN], adcHystThr);
 
     // Calculate voltage and current
     G.vIn   = (uint32_t)G.vInRaw * Nvm.vInCal;
