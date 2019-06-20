@@ -136,6 +136,6 @@ class AdcClass {
 /*
  * ADC class instantiated as a singleton
  */
-extern AdcClass ADConv;
+extern AdcClass Adc;
 
 #endif // __ADC_H
