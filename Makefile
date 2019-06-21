@@ -2,6 +2,17 @@
 # Uninterrruptible Power Supply (UPS) for a Raspberry Pi
 # Project Makefile
 #
+# Notes:
+#
+# - This script depends on the Arduino Makefile project from:
+#   https://github.com/sudar/Arduino-Makefile
+#
+# - The following environment variables need to be defined on your
+#   host system (the actual values depend on your system configuration):
+#      export ARDUINO_DIR=/opt/arduino
+#      export ARDMK_DIR=/opt/arduino-mk
+#      export MONITOR_PORT=/dev/ttyUSB0#
+#
 #
 # This source file is part of the Raspberry Pi UPS Arduino firmware
 # found under http://www.github.com/microfarad-de/pi-ups
@@ -25,16 +36,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>. 
 #
-# Notes:
-#
-# - This script depends on the Arduino Makefile project from:
-#   https://github.com/sudar/Arduino-Makefile
-#
-# - The following environment variables need to be defined on your
-#   host system (the actual values depend on your system configuration):
-#      export ARDUINO_DIR=/opt/arduino
-#      export ARDMK_DIR=/opt/arduino-mk
-#      export MONITOR_PORT=/dev/ttyUSB0
+
 
 
 
