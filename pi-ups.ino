@@ -23,11 +23,11 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Version: 1.2.0
+ * Version: 1.1.0
  * Date:    June 2019
  */
 #define VERSION_MAJOR 1  // major version
-#define VERSION_MINOR 2  // minor version
+#define VERSION_MINOR 1  // minor version
 #define VERSION_MAINT 0  // maintenance version
 
 #include <avr/wdt.h>
