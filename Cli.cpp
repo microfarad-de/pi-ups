@@ -227,6 +227,7 @@ void CliClass::showHelp (void)
   textPadding(' ', INDENT - 3 - 2);
   xprintf(": ");
   textPrintBlock("Help", TEXT_LINE_SIZE, INDENT);
+  xputs("");
 }
 
 

@@ -23,11 +23,11 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Version: 1.1.0
+ * Version: 1.2.0
  * Date:    June 2019
  */
 #define VERSION_MAJOR 1  // major version
-#define VERSION_MINOR 1  // minor version
+#define VERSION_MINOR 2  // minor version
 #define VERSION_MAINT 0  // maintenance version
 
 #include <avr/wdt.h>
@@ -221,8 +221,8 @@ void setup (void) {
 
   // Initialize the Timer 2 PWM frequency for pins 3 and 11
   // see https://etechnophiles.com/change-frequency-pwm-pins-arduino-uno/
-  // see ATmega328P datasheet Section 2.11.2, Table 22-10
-  TCCR2B = (TCCR2B & B11111000) | B00000001; // for PWM frequency of 31372.55 Hz
+  // see ATmega328P datasheet Section 20.11.2, Table 22-10
+  TCCR2B = (TCCR2B & B11111000) | B00000001; // for PWM frequency of 31250 Hz
 
   // Initialize pins
   pinMode (CHG_MOSFET_PIN, OUTPUT);
@@ -253,9 +253,9 @@ void setup (void) {
   Cli.newCmd ("m", "", cmdMeas);
   Cli.newCmd ("halt", "Shutdown (arg: [abort])", cmdHalt);
   Cli.newCmd ("test", "Test (arg: [abort])", cmdTest);
-  Cli.newCmd ("cal", "Calibrate (arg: <start|stop|vin|vups|vbatt>)", cmdCal);
   Cli.newCmd ("rshunt", "Set R_shunt (arg: <mΩ>)", cmdRshunt);
   Cli.newCmd ("vdiode", "Set V_diode (arg: <mV>)", cmdVdiode);
+  Cli.newCmd ("cal", "Calibrate (arg: <start|stop|vin|vups|vbatt> [mV])", cmdCal);
   //Cli.showHelp ();
 
   // Initialize the ADC

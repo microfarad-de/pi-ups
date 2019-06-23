@@ -24,8 +24,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef __Cli_H_
-#define __Cli_H_
+#ifndef __CLI_H_
+#define __CLI_H_
 
 
 #define CLI_NUM_CMD         14   // Number of cli commands
@@ -125,4 +125,4 @@ class CliClass
 extern CliClass Cli;
 
 
-#endif /* __Cli_H_ */
+#endif /* __CLI_H_ */
