@@ -71,6 +71,7 @@
 #define V_BATT_THR_ERROR    2400000   // 2.4 V - V_batt threshold in µV for signalling a battery error
 #define V_UPS_THR_ERROR     4900000   // 4.9 V - V_ups threshold in µV for signalling a DC-DC converter error
 #define V_BATT_HYST_THR       30000   // 0.03 V - Hysteresis threshold in µV for the displayed V_batt via the 'stat' command
+#define V_MEAS_HYST_THR       15000   // 0.015 V - Hysteresis threshold in µV for the output of the 'meas' command
 #define INITIAL_DELAY           500   // Initial power on delay in ms
 #define EXTERNAL_DELAY         1000   // Delay in ms prior to switching back to external power
 #define SHUTDOWN_DELAY        60000   // Delay in ms prior to turning off power upon system shutdown
@@ -740,9 +741,11 @@ int cmdStat (int argc, char **argv) {
  * measurement summary
  */
 int cmdMeas (int argc, char **argv) {
-  Cli.xprintf ("%4umV ", G.vInAvg / G.avgCount);
-  Cli.xprintf ("%4umV ", G.vUpsAvg / G.avgCount);
-  Cli.xprintf ("%4umV ", G.vBattAvg / G.avgCount);
+  static HysteresisClass VInHyst, VUpsHyst, VBattHyst;
+
+  Cli.xprintf ("%4umV ", VInHyst.apply   (G.vInAvg / G.avgCount,   (int32_t)V_MEAS_HYST_THR/1000) );
+  Cli.xprintf ("%4umV ", VUpsHyst.apply  (G.vUpsAvg / G.avgCount,  (int32_t)V_MEAS_HYST_THR/1000) );
+  Cli.xprintf ("%4umV ", VBattHyst.apply (G.vBattAvg / G.avgCount, (int32_t)V_MEAS_HYST_THR/1000) );
   Cli.xprintf ("%4umA ", G.iBattAvg / G.avgCount);
   Cli.xprintf ("%3u\n", LiCharger.pwm);
   G.vInAvg   = 0;
