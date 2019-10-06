@@ -23,11 +23,11 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Version: 1.1.0
- * Date:    June 2019
+ * Version: 2.0.0
+ * Date:    October 2019
  */
-#define VERSION_MAJOR 1  // major version
-#define VERSION_MINOR 1  // minor version
+#define VERSION_MAJOR 2  // major version
+#define VERSION_MINOR 0  // minor version
 #define VERSION_MAINT 0  // maintenance version
 
 #include <avr/wdt.h>
@@ -130,12 +130,12 @@ enum BattState_t {
 };
 
 /*
- * Raspberry Pi watchdog states
+ * Raspberry Pi watchdog timer states
  */
 enum WdState_t {
-  WD_STATE_DISABLED  = 0,  // Watchdog disabled
-  WD_STATE_ENABLED   = 1,  // Watchdog enabled
-  WD_STATE_TRIGGERED = 2   // Watchdog has been triggered
+  WD_STATE_DISABLED  = 0,  // Watchdog timer disabled
+  WD_STATE_ENABLED   = 1,  // Watchdog timer enabled
+  WD_STATE_TRIGGERED = 2   // Watchdog timer has been triggered
 };
 
 /*
@@ -153,7 +153,7 @@ struct {
   uint32_t vBattAvg = 0; // Average value of V_batt in mV
   uint32_t iBattAvg = 0; // Average value if I_batt in mA
   uint32_t avgCount = 0; // Number of averaged values
-  uint32_t watchdogTs;   // Time stamp for activating the watchdog feature
+  uint32_t watchdogTs;   // Time stamp for measuring the RPi watchdog timer duration
   uint16_t vInRaw;       // Raw ADC value of V_in
   uint16_t vUpsRaw;      // Raw ADC value of V_ups
   uint16_t vBattRaw;     // Raw ADC value of V_batt
@@ -176,8 +176,8 @@ struct {
   uint32_t vBattCal;     // V_batt_cal - Calibration constant for calculating V_batt
   uint16_t rShunt;       // R_shunt - Shunt resistor value in mΩ
   uint16_t vDiode;       // V_diode - charger diode voltage drop in mV
-  WdState_t watchdog;    // Watchdog status, if enabled, the RPi will be rebooted if 
-                         // the stat command has not been received for a long period of time.
+  WdState_t watchdog;    // RPi watchdog timer status - if enabled, the RPi will be rebooted if
+                         // the stat command has not been received within WATCHDOG_DURATION
   uint32_t crc;          // CRC checksum
 } Nvm;
 
@@ -212,6 +212,7 @@ void nvmValidate (void);
 void nvmRead (void);
 void nvmWrite (void);
 void checkBattState (void);
+void watchdogReset (void);
 void printState (void);
 void printBriefStatus (void);
 int cmdStat (int argc, char **argv);
@@ -255,14 +256,24 @@ void setup (void) {
   digitalWrite (OUT_MOSFET_PIN, LOW);    // Active low: LOW means the MOSFET is on
   digitalWrite (BATT_MOSFET_PIN, HIGH);  // Active low: HIGH means the MOSFET is off
 
+  // Read the settings from EEPROM
+  nvmRead ();
 
   // Initialize the command-line interface
   Cli.init ( SERIAL_BAUD );
-  Serial.println("");
+  Serial.println ("");
   Serial.println (F("+ + +  P I  U P S  + + +"));
-  Serial.println("");
+  Serial.println ("");
   Cli.xprintf ("V %d.%d.%d\n", VERSION_MAJOR, VERSION_MINOR, VERSION_MAINT);
-  Cli.xputs ("");
+  Serial.println ("");
+  if (Nvm.watchdog != WD_STATE_DISABLED) {
+    Serial.println (F("Watchdog enabled!"));
+    Serial.print (F("Power cycle after "));
+    Serial.print (WATCHDOG_DURATION, DEC);
+    Serial.println (F(" hours"));
+    Serial.println (F("if no 'stat' command received"));
+    Serial.println ("");
+  }
   Cli.xputs ("'h' for help\n");
   Cli.newCmd ("stat", "Brief status", cmdStat);
   Cli.newCmd ("s", "", cmdStat);
@@ -290,11 +301,8 @@ void setup (void) {
   // Initialize the LED
   Led.initialize (LED_PIN);
 
-  // Read the settings from EEPROM
-  nvmRead ();
-
   // Initialize Raspberry Pi watchdog timer
-  G.watchdogTs = millis ();
+  watchdogReset ();
 
   // Enable the watchdog
   wdt_enable (WDTO_1S);
@@ -326,15 +334,15 @@ void loop (void) {
   // Check the battery state
   checkBattState ();
 
-  // Check for RPi watchdog expiry
-  if (Nvm.watchdog != WD_STATE_DISABLED && ts - G.watchdogTs > WATCHDOG_DURATION*3600000) {
+  // Handle shutdown command
+  shutdown ();
+
+  // Handle the RPi watchdog timer expiry
+  if (Nvm.watchdog != WD_STATE_DISABLED && millis() - G.watchdogTs > (uint32_t)30000 /*(uint32_t)WATCHDOG_DURATION*3600000 */) {
     Nvm.watchdog = WD_STATE_TRIGGERED;
     nvmWrite ();
     G.shutdown = true;
   }
-
-  // Handle shutdown command
-  shutdown ();
 
   // Send the CPU into sleep mode
   //powerSave ();
@@ -684,6 +692,13 @@ void checkBattState (void) {
 }
 
 
+/*
+ * Reset the Raspberry Pi watchdog timer
+ */
+void watchdogReset (void) {
+  G.watchdogTs = millis ();
+}
+
 
 /*
  * Convert state to string and print it
@@ -759,8 +774,8 @@ void printBriefStatus (void) {
 int cmdStat (int argc, char **argv) {
   printBriefStatus ();
   G.statRcvd = true;
-  // Reset the watchdog timer
-  G.watchdogTs = millis ();
+  // Reset the RPi watchdog timer
+  watchdogReset ();
   return 0;
 }
 
@@ -796,6 +811,7 @@ int cmdMeas (int argc, char **argv) {
 int cmdHalt (int argc, char **argv) {
   if (strcmp(argv[1], "abort") == 0){
     Serial.println (F("Shutdown abort"));
+    watchdogReset ();
     G.shutdown = false;
   }
   else {
@@ -808,19 +824,19 @@ int cmdHalt (int argc, char **argv) {
 }
 
 /*
- * CLI command for enabling the watchdog feature
- * The watchdog will trigger a power cycle if the stat command 
+ * CLI command for enabling the Raspberry Pi watchdog timer
+ * The watchdog timer will trigger a power cycle if the stat command
  * has not been received during the WATCHDOG_DURATION period.
  * argv[1]:
- *   1 : enable the watchdog
- *   0 : disable the watchdog
+ *   enable : enable the watchdog
+ *   disable : disable the watchdog
  */
 int cmdWatchdog (int argc, char **argv) {
   if (strcmp(argv[1], "enable") == 0) {
     Serial.println (F("Watchdog enabled"));
     Nvm.watchdog = WD_STATE_ENABLED;
     nvmWrite ();
-    G.watchdogTs = millis ();
+    watchdogReset ();
   }
   else if (strcmp(argv[1], "disable") == 0) {
     Serial.println (F("Watchdog disabled"));
