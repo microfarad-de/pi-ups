@@ -499,6 +499,7 @@ void clearError (Error_t error) {
 
 /*
  * Shutdown routine
+ * Initiates a Raspberry Pi power cycle
  */
 void shutdown (void) {
   static uint32_t shutdownTs;
