@@ -78,8 +78,6 @@
 #define RESTART_DELAY          5000   // Delay in ms prior to restarting the system following a shutdown
 #define DCDC_ERROR_DELAY        500   // Delay in milliseconds prior to registering a DC-DC converter error
 #define CALIBRATE_EXIT_DELAY   3600   // Delay in seconds prior to automatically exiting the calibration mode
-#define WATCHDOG_DURATION        36   // Watchdog duration in hours - a power cycle will be initiated if this stat
-                                      // command has not been received during this amount of time 
 
 
 /*
@@ -177,7 +175,8 @@ struct {
   uint16_t rShunt;       // R_shunt - Shunt resistor value in mΩ
   uint16_t vDiode;       // V_diode - charger diode voltage drop in mV
   WdState_t watchdog;    // RPi watchdog timer status - if enabled, the RPi will be rebooted if
-                         // the stat command has not been received within WATCHDOG_DURATION
+                         // the stat command has not been received within wdDuration
+  uint32_t wdDuration;   // RPi watchdog timer duration in hours
   uint32_t crc;          // CRC checksum
 } Nvm;
 
@@ -187,13 +186,13 @@ struct {
  * Strings to be reused for saving memory
  */
 const struct {
-  char *R_shunt    = (char *)"R_shunt    = %umΩ\n";
-  char *V_diode    = (char *)"V_diode    = %umV\n";
-  char *V_in_cal   = (char *)"V_in_cal   = %lu\n";
-  char *V_ups_cal  = (char *)"V_ups_cal  = %lu\n";
-  char *V_batt_cal = (char *)"V_batt_cal = %lu\n";
-  char *Watchdog   = (char *)"Watchdog   = %u\n";
-  char *CRC        = (char *)"CRC        = %lx\n";
+  char *R_shunt     = (char *)"R_shunt    = %umΩ\n";
+  char *V_diode     = (char *)"V_diode    = %umV\n";
+  char *V_in_cal    = (char *)"V_in_cal   = %lu\n";
+  char *V_ups_cal   = (char *)"V_ups_cal  = %lu\n";
+  char *V_batt_cal  = (char *)"V_batt_cal = %lu\n";
+  char *Watchdog    = (char *)"Watchdog   = %u %uh\n";
+  char *CRC         = (char *)"CRC        = %lx\n";
 } Str;
 
 
@@ -256,9 +255,6 @@ void setup (void) {
   digitalWrite (OUT_MOSFET_PIN, LOW);    // Active low: LOW means the MOSFET is on
   digitalWrite (BATT_MOSFET_PIN, HIGH);  // Active low: HIGH means the MOSFET is off
 
-  // Read the settings from EEPROM
-  nvmRead ();
-
   // Initialize the command-line interface
   Cli.init ( SERIAL_BAUD );
   Serial.println ("");
@@ -266,10 +262,14 @@ void setup (void) {
   Serial.println ("");
   Cli.xprintf ("V %d.%d.%d\n", VERSION_MAJOR, VERSION_MINOR, VERSION_MAINT);
   Serial.println ("");
+
+  // Read the settings from EEPROM
+  nvmRead ();
+
   if (Nvm.watchdog != WD_STATE_DISABLED) {
-    Serial.println (F("Watchdog enabled!"));
+    Serial.println (F("Watchdog timer enabled!"));
     Serial.print (F("Power cycle after "));
-    Serial.print (WATCHDOG_DURATION, DEC);
+    Serial.print (Nvm.wdDuration, DEC);
     Serial.println (F(" hours"));
     Serial.println (F("if no 'stat' command received"));
     Serial.println ("");
@@ -288,7 +288,7 @@ void setup (void) {
   Cli.newCmd ("rshunt", "Set R_shunt (arg: <mΩ>)", cmdRshunt);
   Cli.newCmd ("vdiode", "Set V_diode (arg: <mV>)", cmdVdiode);
   Cli.newCmd ("cal", "Calibrate (arg: <start|stop|vin|vups|vbatt> [mV])", cmdCal);
-  Cli.newCmd ("wd", "Watchdog (arg: <enable|disable>)", cmdWatchdog);
+  Cli.newCmd ("wd", "Watchdog (arg: <enable|disable> [hours])", cmdWatchdog);
   //Cli.showHelp ();
 
   // Initialize the ADC
@@ -338,10 +338,11 @@ void loop (void) {
   shutdown ();
 
   // Handle the RPi watchdog timer expiry
-  if (Nvm.watchdog != WD_STATE_DISABLED && millis() - G.watchdogTs > (uint32_t)30000 /*(uint32_t)WATCHDOG_DURATION*3600000 */) {
+  if (Nvm.watchdog != WD_STATE_DISABLED && millis() - G.watchdogTs > Nvm.wdDuration * 3600000 ) {
     Nvm.watchdog = WD_STATE_TRIGGERED;
     nvmWrite ();
     G.shutdown = true;
+    watchdogReset ();
   }
 
   // Send the CPU into sleep mode
@@ -616,6 +617,7 @@ void nvmValidate (void) {
   if (Nvm.rShunt < 100 || Nvm.rShunt > 5000) Nvm.rShunt = 100;
   if (Nvm.vDiode < 100 || Nvm.vDiode > 1000) Nvm.vDiode = 100;
   if ((uint32_t)Nvm.watchdog > WD_STATE_TRIGGERED) Nvm.watchdog = WD_STATE_DISABLED;
+  if (Nvm.wdDuration < 1) Nvm.wdDuration = 36;
 }
 
 
@@ -826,17 +828,20 @@ int cmdHalt (int argc, char **argv) {
 /*
  * CLI command for enabling the Raspberry Pi watchdog timer
  * The watchdog timer will trigger a power cycle if the stat command
- * has not been received during the WATCHDOG_DURATION period.
+ * has not been received during the wdDuration period.
  * argv[1]:
- *   enable : enable the watchdog
- *   disable : disable the watchdog
+ *   enable <duration> : enable enable with duration
+ *   disable           : disable the watchdog
  */
 int cmdWatchdog (int argc, char **argv) {
   if (strcmp(argv[1], "enable") == 0) {
-    Serial.println (F("Watchdog enabled"));
+    if (argc == 3) {
+      Nvm.wdDuration = (uint32_t)atoi(argv[2]);
+    }
     Nvm.watchdog = WD_STATE_ENABLED;
     nvmWrite ();
     watchdogReset ();
+    Cli.xprintf (Str.Watchdog, Nvm.watchdog, Nvm.wdDuration);
   }
   else if (strcmp(argv[1], "disable") == 0) {
     Serial.println (F("Watchdog disabled"));
@@ -893,7 +898,7 @@ int cmdEEPROM (int argc, char **argv) {
   Cli.xprintf (Str.V_batt_cal, Nvm.vBattCal);
   Cli.xprintf (Str.R_shunt,    Nvm.rShunt);
   Cli.xprintf (Str.V_diode,    Nvm.vDiode);
-  Cli.xprintf (Str.Watchdog,   Nvm.watchdog);
+  Cli.xprintf (Str.Watchdog,   Nvm.watchdog, Nvm.wdDuration);
   Cli.xprintf (Str.CRC,        Nvm.crc);
   Cli.xputs ("");
   if (Nvm.watchdog == WD_STATE_TRIGGERED) {
