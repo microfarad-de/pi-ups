@@ -78,6 +78,8 @@
 #define RESTART_DELAY          5000   // Delay in ms prior to restarting the system following a shutdown
 #define DCDC_ERROR_DELAY        500   // Delay in milliseconds prior to registering a DC-DC converter error
 #define CALIBRATE_EXIT_DELAY   3600   // Delay in seconds prior to automatically exiting the calibration mode
+#define WATCHDOG_DURATION        36   // Watchdog duration in hours - a power cycle will be initiated if this stat
+                                      // command has not been received during this amount of time 
 
 
 /*
@@ -128,6 +130,15 @@ enum BattState_t {
 };
 
 /*
+ * Raspberry Pi watchdog states
+ */
+enum WdState_t {
+  WD_STATE_DISABLED  = 0,  // Watchdog disabled
+  WD_STATE_ENABLED   = 1,  // Watchdog enabled
+  WD_STATE_TRIGGERED = 2   // Watchdog has been triggered
+};
+
+/*
  * Global variables
  */
 struct {
@@ -142,6 +153,7 @@ struct {
   uint32_t vBattAvg = 0; // Average value of V_batt in mV
   uint32_t iBattAvg = 0; // Average value if I_batt in mA
   uint32_t avgCount = 0; // Number of averaged values
+  uint32_t watchdogTs;   // Time stamp for activating the watchdog feature
   uint16_t vInRaw;       // Raw ADC value of V_in
   uint16_t vUpsRaw;      // Raw ADC value of V_ups
   uint16_t vBattRaw;     // Raw ADC value of V_batt
@@ -164,6 +176,8 @@ struct {
   uint32_t vBattCal;     // V_batt_cal - Calibration constant for calculating V_batt
   uint16_t rShunt;       // R_shunt - Shunt resistor value in mΩ
   uint16_t vDiode;       // V_diode - charger diode voltage drop in mV
+  WdState_t watchdog;    // Watchdog status, if enabled, the RPi will be rebooted if 
+                         // the stat command has not been received for a long period of time.
   uint32_t crc;          // CRC checksum
 } Nvm;
 
@@ -178,6 +192,7 @@ const struct {
   char *V_in_cal   = (char *)"V_in_cal   = %lu\n";
   char *V_ups_cal  = (char *)"V_ups_cal  = %lu\n";
   char *V_batt_cal = (char *)"V_batt_cal = %lu\n";
+  char *Watchdog   = (char *)"Watchdog   = %u\n";
   char *CRC        = (char *)"CRC        = %lx\n";
 } Str;
 
@@ -202,6 +217,7 @@ void printBriefStatus (void);
 int cmdStat (int argc, char **argv);
 int cmdMeas (int argc, char **argv);
 int cmdHalt (int argc, char **argv);
+int cmdWatchdog (int argc, char **argv);
 int cmdTest (int argc, char **argv);
 int cmdStatus (int argc, char **argv);
 int cmdEEPROM (int argc, char **argv);
@@ -242,9 +258,9 @@ void setup (void) {
 
   // Initialize the command-line interface
   Cli.init ( SERIAL_BAUD );
-  Cli.xputs ("");
-  Cli.xputs ("+ + +  P I  U P S  + + +");
-  Cli.xputs ("");
+  Serial.println("");
+  Serial.println (F("+ + +  P I  U P S  + + +"));
+  Serial.println("");
   Cli.xprintf ("V %d.%d.%d\n", VERSION_MAJOR, VERSION_MINOR, VERSION_MAINT);
   Cli.xputs ("");
   Cli.xputs ("'h' for help\n");
@@ -261,6 +277,7 @@ void setup (void) {
   Cli.newCmd ("rshunt", "Set R_shunt (arg: <mΩ>)", cmdRshunt);
   Cli.newCmd ("vdiode", "Set V_diode (arg: <mV>)", cmdVdiode);
   Cli.newCmd ("cal", "Calibrate (arg: <start|stop|vin|vups|vbatt> [mV])", cmdCal);
+  Cli.newCmd ("wd", "Watchdog (arg: <enable|disable>)", cmdWatchdog);
   //Cli.showHelp ();
 
   // Initialize the ADC
@@ -275,6 +292,9 @@ void setup (void) {
 
   // Read the settings from EEPROM
   nvmRead ();
+
+  // Initialize Raspberry Pi watchdog timer
+  G.watchdogTs = millis ();
 
   // Enable the watchdog
   wdt_enable (WDTO_1S);
@@ -305,6 +325,13 @@ void loop (void) {
 
   // Check the battery state
   checkBattState ();
+
+  // Check for RPi watchdog expiry
+  if (Nvm.watchdog != WD_STATE_DISABLED && ts - G.watchdogTs > WATCHDOG_DURATION*3600000) {
+    Nvm.watchdog = WD_STATE_TRIGGERED;
+    nvmWrite ();
+    G.shutdown = true;
+  }
 
   // Handle shutdown command
   shutdown ();
@@ -580,6 +607,7 @@ void nvmValidate (void) {
   if (Nvm.vBattCal < 4000 || Nvm.vBattCal > 40000) Nvm.vBattCal = 40000;
   if (Nvm.rShunt < 100 || Nvm.rShunt > 5000) Nvm.rShunt = 100;
   if (Nvm.vDiode < 100 || Nvm.vDiode > 1000) Nvm.vDiode = 100;
+  if ((uint32_t)Nvm.watchdog > WD_STATE_TRIGGERED) Nvm.watchdog = WD_STATE_DISABLED;
 }
 
 
@@ -598,8 +626,8 @@ void nvmRead (void) {
   Cli.xputs ("");
 
   if (crc != Nvm.crc) {
-    Cli.xputs ("CRC error");
-    Cli.xputs ("");
+    Serial.println (F("CRC error"));
+    Serial.println ("");
     raiseError (ERROR_CRC);
   }
 }
@@ -662,20 +690,20 @@ void checkBattState (void) {
  */
 void printState (State_t state, bool printValues) {
   if (state == STATE_INIT) {
-    Cli.xprintf("INIT");
+    Serial.print(F("INIT"));
   }
   else if (state == STATE_EXTERNAL) {
-    Cli.xprintf("EXTERNAL");
+    Serial.print(F("EXTERNAL"));
   }
   else if (state == STATE_BATTERY) {
-    Cli.xprintf("BATTERY");
+    Serial.print(F("BATTERY"));
     if (printValues) Cli.xprintf(" %u%%", G.battState);
   }
   else if (state == STATE_CALIBRATE) {
-    Cli.xprintf("CALIBRATE");
+    Serial.print(F("CALIBRATE"));
   }
   else if (state == STATE_ERROR) {
-    Cli.xprintf ("ERROR");
+    Serial.print (F("ERROR"));
     if (printValues) Cli.xprintf (" %u", G.error);
   }
 }
@@ -705,10 +733,10 @@ void printBriefStatus (void) {
     Cli.xprintf (" SHUTDOWN %u", digitalRead (OUT_MOSFET_PIN));
   }
   if (G.testMode) {
-    Cli.xprintf (" TEST");
+    Serial.print (F(" TEST"));
   }
   if (LiCharger.state == LI_CHARGER_STATE_CHARGE) {
-    Cli.xprintf (" CHARGING");
+    Serial.print (F(" CHARGING"));
   }
   // Reduce voltage resolution and apply a hysteresis to avoid
   // frequent tracing upon voltage change
@@ -731,6 +759,8 @@ void printBriefStatus (void) {
 int cmdStat (int argc, char **argv) {
   printBriefStatus ();
   G.statRcvd = true;
+  // Reset the watchdog timer
+  G.watchdogTs = millis ();
   return 0;
 }
 
@@ -765,7 +795,7 @@ int cmdMeas (int argc, char **argv) {
  */
 int cmdHalt (int argc, char **argv) {
   if (strcmp(argv[1], "abort") == 0){
-    Cli.xputs ("Shutdown abort");
+    Serial.println (F("Shutdown abort"));
     G.shutdown = false;
   }
   else {
@@ -778,17 +808,40 @@ int cmdHalt (int argc, char **argv) {
 }
 
 /*
+ * CLI command for enabling the watchdog feature
+ * The watchdog will trigger a power cycle if the stat command 
+ * has not been received during the WATCHDOG_DURATION period.
+ * argv[1]:
+ *   1 : enable the watchdog
+ *   0 : disable the watchdog
+ */
+int cmdWatchdog (int argc, char **argv) {
+  if (strcmp(argv[1], "enable") == 0) {
+    Serial.println (F("Watchdog enabled"));
+    Nvm.watchdog = WD_STATE_ENABLED;
+    nvmWrite ();
+    G.watchdogTs = millis ();
+  }
+  else if (strcmp(argv[1], "disable") == 0) {
+    Serial.println (F("Watchdog disabled"));
+    Nvm.watchdog = WD_STATE_DISABLED;
+    nvmWrite ();
+  }
+  return 0;
+}
+
+/*
  * CLI command for initiating the UPS test mode
  * argv[1]:
  *   abort : abort the UPS test mode
  */
 int cmdTest (int argc, char **argv) {
   if (strcmp(argv[1], "abort") == 0) {
-    Cli.xputs("Test abort");
+    Serial.println (F("Test abort"));
     G.testMode = false;
   }
   else if (!G.shutdown) {
-    Cli.xputs("Test");
+    Serial.println (F("Test"));
     G.testMode = true;
   }
   return 0;
@@ -824,8 +877,13 @@ int cmdEEPROM (int argc, char **argv) {
   Cli.xprintf (Str.V_batt_cal, Nvm.vBattCal);
   Cli.xprintf (Str.R_shunt,    Nvm.rShunt);
   Cli.xprintf (Str.V_diode,    Nvm.vDiode);
+  Cli.xprintf (Str.Watchdog,   Nvm.watchdog);
   Cli.xprintf (Str.CRC,        Nvm.crc);
   Cli.xputs ("");
+  if (Nvm.watchdog == WD_STATE_TRIGGERED) {
+    Nvm.watchdog = WD_STATE_ENABLED;
+    nvmWrite ();
+  }
   return 0;
 }
 
@@ -877,12 +935,12 @@ int cmdCal (int argc, char **argv) {
     else if (strcmp(argv[1], "vbatt") == 0 && argc == 3) calVbatt (vRef);
     else if (strcmp(argv[1], "stop") == 0) {
       changeState (STATE_EXTERNAL_E);
-      Cli.xputs ("Calibration stop");
+      Serial.println (F("Calibration stop"));
     }
   }
   else if (strcmp(argv[1], "start") == 0 && (G.state == STATE_EXTERNAL || G.state == STATE_ERROR)) {
     changeState (STATE_CALIBRATE_E);
-    Cli.xputs ("Calibration start");
+    Serial.println(F("Calibration start"));
   }
   return 0;
 }
