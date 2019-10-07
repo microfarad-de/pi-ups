@@ -191,7 +191,7 @@ const struct {
   char *V_in_cal    = (char *)"V_in_cal   = %lu\n";
   char *V_ups_cal   = (char *)"V_ups_cal  = %lu\n";
   char *V_batt_cal  = (char *)"V_batt_cal = %lu\n";
-  char *Watchdog    = (char *)"Watchdog   = %u %uh\n";
+  char *watchdog    = (char *)"watchdog   = %u (%uh)\n";
   char *CRC         = (char *)"CRC        = %lx\n";
 } Str;
 
@@ -842,7 +842,7 @@ int cmdWatchdog (int argc, char **argv) {
     Nvm.watchdog = WD_STATE_ENABLED;
     nvmWrite ();
     watchdogReset ();
-    Cli.xprintf (Str.Watchdog, Nvm.watchdog, Nvm.wdDuration);
+    Cli.xprintf (Str.watchdog, Nvm.watchdog, Nvm.wdDuration);
   }
   else if (strcmp(argv[1], "disable") == 0) {
     Serial.println (F("Watchdog disabled"));
@@ -899,7 +899,7 @@ int cmdEEPROM (int argc, char **argv) {
   Cli.xprintf (Str.V_batt_cal, Nvm.vBattCal);
   Cli.xprintf (Str.R_shunt,    Nvm.rShunt);
   Cli.xprintf (Str.V_diode,    Nvm.vDiode);
-  Cli.xprintf (Str.Watchdog,   Nvm.watchdog, Nvm.wdDuration);
+  Cli.xprintf (Str.watchdog,   Nvm.watchdog, Nvm.wdDuration);
   Cli.xprintf (Str.CRC,        Nvm.crc);
   Cli.xputs ("");
   if (Nvm.watchdog == WD_STATE_TRIGGERED) {
