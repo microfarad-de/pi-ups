@@ -23,11 +23,11 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Version: 2.0.0
+ * Version: 2.1.0
  * Date:    October 2019
  */
 #define VERSION_MAJOR 2  // major version
-#define VERSION_MINOR 0  // minor version
+#define VERSION_MINOR 1  // minor version
 #define VERSION_MAINT 0  // maintenance version
 
 #include <avr/wdt.h>
@@ -761,12 +761,12 @@ void printBriefStatus (void) {
   uint32_t vBatt = Hyst.apply (G.vBatt, (int32_t)V_BATT_HYST_THR);
   uint8_t v1 = vBatt/1000000;
   uint8_t v10 = vBatt/100000 - v1*10;
-  uint8_t v100;
-  uint8_t v1000 = vBatt/1000 - v1*1000 - v10*100;
-  if      (v1000 < 25) v100 = 0;
-  else if (v1000 < 75) v100 = 5;
-  else    v100 = 0, v10++;
-  if      (v10 == 10) v10 = 0, v1++;
+  uint8_t v100 = vBatt/10000 - v1*100 - v10*10;
+  //uint8_t v1000 = vBatt/1000 - v1*1000 - v10*100;
+  //if      (v1000 < 25) v100 = 0;
+  //else if (v1000 < 75) v100 = 5;
+  //else    v100 = 0, v10++;
+  //if      (v10 == 10) v10 = 0, v1++;
   Cli.xprintf (" %u.%u%uV\n", v1, v10, v100);
 }
 
