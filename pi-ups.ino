@@ -23,11 +23,11 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Version: 2.1.0
- * Date:    October 2019
+ * Version: 2.2.0
+ * Date:    February 2020
  */
 #define VERSION_MAJOR 2  // major version
-#define VERSION_MINOR 1  // minor version
+#define VERSION_MINOR 2  // minor version
 #define VERSION_MAINT 0  // maintenance version
 
 #include <avr/wdt.h>
@@ -70,7 +70,7 @@
 #define V_BATT_THR_LOW      3200000   // 3.2 V - V_batt threshold in µV for initiating a system shutdown
 #define V_BATT_THR_ERROR    2400000   // 2.4 V - V_batt threshold in µV for signalling a battery error
 #define V_UPS_THR_ERROR     4900000   // 4.9 V - V_ups threshold in µV for signalling a DC-DC converter error
-#define V_BATT_HYST_THR       30000   // 0.03 V - Hysteresis threshold in µV for the displayed V_batt via the 'stat' command
+#define V_BATT_HYST_THR       15000   // 0.015 V - Hysteresis threshold in µV for the displayed V_batt via the 'stat' command
 #define V_MEAS_HYST_THR       15000   // 0.015 V - Hysteresis threshold in µV for the output of the 'meas' command
 #define INITIAL_DELAY           500   // Initial power on delay in ms
 #define EXTERNAL_DELAY         1000   // Delay in ms prior to switching back to external power
