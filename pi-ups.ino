@@ -33,11 +33,16 @@
 #include <avr/wdt.h>
 #include <avr/sleep.h>
 #include <Arduino.h>
-#include "Helper.h"
-#include "LiCharger.h"
-#include "Cli.h"
-#include "Adc.h"
-#include "Led.h"
+
+#include "src/Adc/Adc.h"
+#include "src/Cli/Cli.h"
+#include "src/Led/Led.h"
+#include "src/LiCharger/LiCharger.h"
+#include "src/Math/Math.h"
+#include "src/Nvm/Nvm.h"
+
+
+
 
 
 

@@ -11,7 +11,7 @@
 #   host system (the actual values depend on your system configuration):
 #      export ARDUINO_DIR=/opt/arduino
 #      export ARDMK_DIR=/opt/arduino-mk
-#      export MONITOR_PORT=/dev/ttyUSB0#
+#      export MONITOR_PORT=/dev/ttyUSB0
 #
 #
 # This source file is part of the Raspberry Pi UPS Arduino firmware
@@ -43,4 +43,11 @@
 BOARD_TAG = pro
 BOARD_SUB = 16MHzatmega328
 MONITOR_BAUDRATE = 19200
+
+ARDMK_DIR = arduino-mk
+#USER_LIB_PATH = src
+#ARDUINO_LIBS = Adc Cli Led LiCharger Math Nvm
+#MONITOR_PORT = /dev/ttyUSB0
+ARDUINO_DIR = /Applications/Arduino.app/Contents/Java
+
 include ${ARDMK_DIR}/Arduino.mk
