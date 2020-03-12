@@ -24,7 +24,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  * Version: 2.2.1
- * Date:    February 2020
+ * Date:    March 2020
  */
 #define VERSION_MAJOR 2  // major version
 #define VERSION_MINOR 2  // minor version
