@@ -49,6 +49,7 @@ ARDMK_DIR = arduino-mk
 #ARDUINO_DIR = /Applications/Arduino.app/Contents/Java
 
 USER_LIB_PATH = src
+#ARDUINO_LIB_PATH = ../libraries
 ARDUINO_LIBS = Adc Cli Led LiCharger MathMf Nvm EEPROM
 
 include ${ARDMK_DIR}/Arduino.mk
