@@ -43,4 +43,11 @@
 BOARD_TAG = pro
 BOARD_SUB = 16MHzatmega328
 MONITOR_BAUDRATE = 19200
+
+ARDMK_DIR = arduino-mk
+ARDUINO_DIR = /Applications/Arduino.app/Contents/Java
+
+USER_LIB_PATH = src
+ARDUINO_LIBS = Adc Cli Led LiCharger MathMf Nvm EEPROM
+
 include ${ARDMK_DIR}/Arduino.mk

@@ -1,0 +1,21 @@
+[submodule "arduino-mk"]
+	path = arduino-mk
+	url = ssh://git@github.com/sudar/Arduino-Makefile
+[submodule "src/Adc"]
+	path = src/Adc
+	url = ssh://git@github.com/microfarad-de/Adc
+[submodule "src/Cli"]
+	path = src/Cli
+	url = ssh://git@github.com/microfarad-de/Cli
+[submodule "src/Led"]
+	path = src/Led
+	url = ssh://git@github.com/microfarad-de/Led
+[submodule "src/LiCharger"]
+	path = src/LiCharger
+	url = ssh://git@github.com/microfarad-de/LiCharger
+[submodule "src/Nvm"]
+	path = src/Nvm
+	url = ssh://git@github.com/microfarad-de/Nvm
+[submodule "src/MathMf"]
+	path = src/MathMf
+	url = ssh://git@github.com/microfarad-de/MathMf
