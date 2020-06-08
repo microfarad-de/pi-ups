@@ -3,19 +3,19 @@
 	url = ssh://git@github.com/sudar/Arduino-Makefile
 [submodule "src/Adc"]
 	path = src/Adc
-	url = ssh://git@github.com/microfarad-de/Adc
+	url = ssh://git@github.com/arduino-library/Adc
 [submodule "src/Cli"]
 	path = src/Cli
-	url = ssh://git@github.com/microfarad-de/Cli
+	url = ssh://git@github.com/arduino-library/Cli
 [submodule "src/Led"]
 	path = src/Led
-	url = ssh://git@github.com/microfarad-de/Led
+	url = ssh://git@github.com/arduino-library/Led
 [submodule "src/LiCharger"]
 	path = src/LiCharger
-	url = ssh://git@github.com/microfarad-de/LiCharger
+	url = ssh://git@github.com/arduino-library/LiCharger
 [submodule "src/Nvm"]
 	path = src/Nvm
-	url = ssh://git@github.com/microfarad-de/Nvm
+	url = ssh://git@github.com/arduino-library/Nvm
 [submodule "src/MathMf"]
 	path = src/MathMf
-	url = ssh://git@github.com/microfarad-de/MathMf
+	url = ssh://git@github.com/arduino-library/MathMf

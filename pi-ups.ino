@@ -28,7 +28,7 @@
  */
 #define VERSION_MAJOR 2  // major version
 #define VERSION_MINOR 2  // minor version
-#define VERSION_MAINT 1  // maintenance version
+#define VERSION_MAINT 2  // maintenance version
 
 #include <avr/wdt.h>
 #include <avr/sleep.h>
