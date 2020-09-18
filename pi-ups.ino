@@ -23,12 +23,12 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Version: 2.2.2
+ * Version: 2.3.0
  * Date:    June 2020
  */
 #define VERSION_MAJOR 2  // major version
-#define VERSION_MINOR 2  // minor version
-#define VERSION_MAINT 2  // maintenance version
+#define VERSION_MINOR 3  // minor version
+#define VERSION_MAINT 0  // maintenance version
 
 #include <avr/wdt.h>
 #include <avr/sleep.h>
@@ -902,6 +902,7 @@ int cmdEEPROM (int argc, char **argv) {
   Cli.xprintf (Str.V_diode,    Nvm.vDiode);
   Cli.xprintf (Str.watchdog,   Nvm.watchdog, Nvm.wdDuration);
   Cli.xprintf (Str.CRC,        Nvm.crc);
+  Cli.xprintf ("V %d.%d.%d\n", VERSION_MAJOR, VERSION_MINOR, VERSION_MAINT);
   Cli.xputs ("");
   if (Nvm.watchdog == WD_STATE_TRIGGERED) {
     Nvm.watchdog = WD_STATE_ENABLED;
