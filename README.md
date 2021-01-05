@@ -4,6 +4,8 @@ This repository contains the Arduino firmware implementation of an uninterruptib
 
 This software includes the Arduino firmware running on the UPS device as well as the Python script `ups.py` which runs on the Raspberry Pi. The Python script monitors the UPS by periodically polling its status over the serial port. The script takes care of event logging and ensures a proper system shutdown once a low battery event has been detected.
 
+This project uses Git submodules. In order to get its full source code, please clone this Git repository to your local workspace, then execute the follwoing command from within the repository's root directory: `git submodule update --init`.
+
 Please visit http://www.microfarad.de/pi-ups for a full description of this project.
 
 Unless stated otherwise within the source file headers, please feel free to use and distribute this code under the *GNU General Public License v3.0*.
