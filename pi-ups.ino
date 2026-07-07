@@ -23,12 +23,12 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Version: 2.3.0
- * Date:    September 2020
+ * Version: 2.3.1
+ * Date:    July 07, 2026
  */
 #define VERSION_MAJOR 2  // major version
 #define VERSION_MINOR 3  // minor version
-#define VERSION_MAINT 0  // maintenance version
+#define VERSION_MAINT 1  // maintenance version
 
 #include <avr/wdt.h>
 #include <avr/sleep.h>
@@ -733,18 +733,10 @@ void printState (State_t state, bool printValues) {
  * Print system state string
  */
 void printBriefStatus (void) {
-  static State_t lastState = STATE_INIT_E;
   static HysteresisClass Hyst;
 
   printState (G.state, true);
-  // Print the last state upon state transition
-  if (lastState != G.lastState) {
-    Cli.xprintf (" (");
-    printState (G.lastState, false);
-    Cli.xprintf (")");
-  }
-  G.lastState = G.state;
-  lastState = G.state;
+
   if (G.state == STATE_ERROR) {
     G.errorSeen = true;
   }
