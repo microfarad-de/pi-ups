@@ -23,12 +23,12 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Version: 2.3.1
- * Date:    July 07, 2026
+ * Version: 2.4.0
+ * Date:    July 20, 2026
  */
 #define VERSION_MAJOR 2  // major version
-#define VERSION_MINOR 3  // minor version
-#define VERSION_MAINT 1  // maintenance version
+#define VERSION_MINOR 4  // minor version
+#define VERSION_MAINT 0  // maintenance version
 
 #include <avr/wdt.h>
 #include <avr/sleep.h>
@@ -246,7 +246,20 @@ void setup (void) {
   // see ATmega328P datasheet Section 20.11.2, Table 22-10
   TCCR2B = (TCCR2B & B11111000) | B00000001; // for PWM frequency of 31250 Hz
 
+  // Configure all unused pins as INPUT_PULLUP to avoid
+  // excessive power draw due to toggling floating pins
+  // except crystal pins.
+  DDRB  = 0x00;
+  DDRC  = 0x00;
+  DDRD  = 0x00;
+  PORTB = 0x3F;   // D8–D13 pull-ups enabled
+  PORTC = 0x3F;   // A0–A5 pull-ups enabled
+  PORTD = 0xFF;   // D0–D7 pull-ups enabled
+
   // Initialize pins
+  pinMode (A0, INPUT);
+  pinMode (A2, INPUT);
+  pinMode (A3, INPUT);
   pinMode (CHG_MOSFET_PIN, OUTPUT);
   pinMode (IN_MOSFET_PIN, OUTPUT);
   pinMode (OUT_MOSFET_PIN, OUTPUT);

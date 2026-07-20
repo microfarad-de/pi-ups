@@ -19,6 +19,3 @@
 [submodule "src/MathMf"]
 	path = src/MathMf
 	url = ssh://git@github.com/arduino-library/MathMf
-[submodule "tools"]
-	path = tools
-	url = ssh://git@github.com/microfarad-de/tools
